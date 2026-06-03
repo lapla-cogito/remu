@@ -12,6 +12,21 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
+        crate::decode::Instr::Slliw { rd, rs1, shamt } => {
+            let v = ((cpu.read_gpr(rs1) as i32 as u32) << shamt) as i32 as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Srliw { rd, rs1, shamt } => {
+            let v = ((cpu.read_gpr(rs1) as i32 as u32) >> shamt) as i32 as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Sraiw { rd, rs1, shamt } => {
+            let v = ((cpu.read_gpr(rs1) as i32) >> shamt) as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
         crate::decode::Instr::Add { rd, rs1, rs2 } => {
             let v = cpu.read_gpr(rs1).wrapping_add(cpu.read_gpr(rs2));
             cpu.write_gpr(rd, v);

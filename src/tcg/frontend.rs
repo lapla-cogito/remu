@@ -42,6 +42,48 @@ pub fn translate_block(
                     ctx.gen_set_gpr_i64(rd, t5);
                 }
             }
+            crate::decode::Instr::Slliw { rd, rs1, shamt } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(shamt as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_shl_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Srliw { rd, rs1, shamt } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(shamt as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_shr_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Sraiw { rd, rs1, shamt } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(shamt as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_sar_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
             crate::decode::Instr::Add { rd, rs1, rs2 } => {
                 if rd != 0 {
                     let t1 = ctx.new_temp();

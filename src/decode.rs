@@ -1,6 +1,9 @@
 pub enum Instr {
     Addi { rd: u8, rs1: u8, imm: i64 },
     Addiw { rd: u8, rs1: u8, imm: i64 },
+    Slliw { rd: u8, rs1: u8, shamt: u32 },
+    Srliw { rd: u8, rs1: u8, shamt: u32 },
+    Sraiw { rd: u8, rs1: u8, shamt: u32 },
     Add { rd: u8, rs1: u8, rs2: u8 },
     Sub { rd: u8, rs1: u8, rs2: u8 },
     And { rd: u8, rs1: u8, rs2: u8 },
@@ -100,6 +103,18 @@ pub fn decode(raw: u32) -> Instr {
             let imm = sign_extend(imm12 as u64, 12) as i64;
             match funct3 {
                 0 => Instr::Addiw { rd, rs1, imm },
+                1 => {
+                    let shamt = (raw >> 20) & 0x3f;
+                    Instr::Slliw { rd, rs1, shamt }
+                }
+                5 => {
+                    let shamt = (raw >> 20) & 0x3f;
+                    if funct7 == 0 {
+                        Instr::Srliw { rd, rs1, shamt }
+                    } else {
+                        Instr::Sraiw { rd, rs1, shamt }
+                    }
+                }
                 _ => Instr::Unknown(raw),
             }
         }

@@ -2,6 +2,7 @@
 	.global _start
 _start:
 	li t0, 5
+	slliw t6, t0, 1
 	slti t1, t0, 10
 	sltiu t2, t0, 10
 	andi t3, t0, 3
