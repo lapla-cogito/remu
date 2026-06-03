@@ -1,3 +1,4 @@
+#[expect(clippy::manual_checked_ops)]
 pub fn execute_tcg(
     ctx: &crate::tcg::context::TcgContext,
     cpu: &mut crate::cpu::Cpu,
@@ -131,6 +132,120 @@ pub fn execute_tcg(
                 {
                     temps[*d as usize] =
                         (temps[*s1 as usize] as i64 >> (temps[*s2 as usize] & 63)) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::MulI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    temps[*d as usize] = temps[*s1 as usize].wrapping_mul(temps[*s2 as usize]);
+                }
+            }
+            crate::tcg::op::TcgOpcode::MulhI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let a = temps[*s1 as usize] as i64 as i128;
+                    let b = temps[*s2 as usize] as i64 as i128;
+                    temps[*d as usize] = ((a * b) >> 64) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::MulhsuI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let a = temps[*s1 as usize] as i64 as i128;
+                    let b = temps[*s2 as usize] as u64 as i128;
+                    temps[*d as usize] = ((a * b) >> 64) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::MulhuI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let a = temps[*s1 as usize] as u64 as u128;
+                    let b = temps[*s2 as usize] as u64 as u128;
+                    temps[*d as usize] = ((a * b) >> 64) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::DivsI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let dividend = temps[*s1 as usize] as i64;
+                    let divisor = temps[*s2 as usize] as i64;
+                    temps[*d as usize] = if divisor == 0 {
+                        -1i64 as u64
+                    } else if dividend == i64::MIN && divisor == -1 {
+                        i64::MIN as u64
+                    } else {
+                        (dividend / divisor) as u64
+                    };
+                }
+            }
+            crate::tcg::op::TcgOpcode::DivuI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let dividend = temps[*s1 as usize];
+                    let divisor = temps[*s2 as usize];
+                    temps[*d as usize] = if divisor == 0 {
+                        u64::MAX
+                    } else {
+                        dividend / divisor
+                    };
+                }
+            }
+            crate::tcg::op::TcgOpcode::RemsI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let dividend = temps[*s1 as usize] as i64;
+                    let divisor = temps[*s2 as usize] as i64;
+                    temps[*d as usize] = if divisor == 0 {
+                        dividend as u64
+                    } else if dividend == i64::MIN && divisor == -1 {
+                        0
+                    } else {
+                        (dividend % divisor) as u64
+                    };
+                }
+            }
+            crate::tcg::op::TcgOpcode::RemuI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let dividend = temps[*s1 as usize];
+                    let divisor = temps[*s2 as usize];
+                    temps[*d as usize] = if divisor == 0 {
+                        dividend
+                    } else {
+                        dividend % divisor
+                    };
                 }
             }
             crate::tcg::op::TcgOpcode::SetCondI64 => {

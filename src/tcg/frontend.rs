@@ -84,6 +84,81 @@ pub fn translate_block(
                     ctx.gen_set_gpr_i64(rd, t5);
                 }
             }
+            crate::decode::Instr::Mulw { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_mul_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Divw { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_divs_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Divuw { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_divu_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Remw { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_rems_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
+            crate::decode::Instr::Remuw { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_remu_i64(t3, t1, t2);
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
             crate::decode::Instr::Add { rd, rs1, rs2 } => {
                 if rd != 0 {
                     let t1 = ctx.new_temp();
@@ -186,6 +261,94 @@ pub fn translate_block(
                     ctx.gen_get_gpr_i64(t2, rs2);
                     let t3 = ctx.new_temp();
                     ctx.gen_xor_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Mul { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_mul_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Mulh { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_mulh_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Mulhsu { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_mulhsu_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Mulhu { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_mulhu_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Div { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_divs_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Divu { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_divu_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Rem { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_rems_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Remu { rd, rs1, rs2 } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_remu_i64(t3, t1, t2);
                     ctx.gen_set_gpr_i64(rd, t3);
                 }
             }

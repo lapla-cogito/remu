@@ -1,3 +1,4 @@
+#[expect(clippy::manual_checked_ops)]
 pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> anyhow::Result<()> {
     let (ilen, instr) = crate::decode::fetch_decode(mem, cpu.pc)?;
     let npc = cpu.pc.wrapping_add(ilen as u64);
@@ -24,6 +25,60 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::Sraiw { rd, rs1, shamt } => {
             let v = ((cpu.read_gpr(rs1) as i32) >> shamt) as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Mulw { rd, rs1, rs2 } => {
+            let v =
+                ((cpu.read_gpr(rs1) as i32).wrapping_mul(cpu.read_gpr(rs2) as i32)) as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Divw { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as i32;
+            let divisor = cpu.read_gpr(rs2) as i32;
+            let v = if divisor == 0 {
+                -1i32 as u32 as u64
+            } else if dividend == i32::MIN && divisor == -1 {
+                i32::MIN as u64
+            } else {
+                (dividend / divisor) as i64 as u64
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Divuw { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as u32;
+            let divisor = cpu.read_gpr(rs2) as u32;
+            let v = if divisor == 0 {
+                u32::MAX as u64
+            } else {
+                (dividend / divisor) as u64
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Remw { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as i32;
+            let divisor = cpu.read_gpr(rs2) as i32;
+            let v = if divisor == 0 {
+                dividend as u64
+            } else if dividend == i32::MIN && divisor == -1 {
+                0
+            } else {
+                (dividend % divisor) as i64 as u64
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Remuw { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as u32;
+            let divisor = cpu.read_gpr(rs2) as u32;
+            let v = if divisor == 0 {
+                dividend as u64
+            } else {
+                (dividend % divisor) as u64
+            };
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
@@ -82,6 +137,80 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::Xor { rd, rs1, rs2 } => {
             let v = cpu.read_gpr(rs1) ^ cpu.read_gpr(rs2);
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Mul { rd, rs1, rs2 } => {
+            let v = cpu.read_gpr(rs1).wrapping_mul(cpu.read_gpr(rs2));
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Mulh { rd, rs1, rs2 } => {
+            let a = cpu.read_gpr(rs1) as i64 as i128;
+            let b = cpu.read_gpr(rs2) as i64 as i128;
+            let v = ((a * b) >> 64) as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Mulhsu { rd, rs1, rs2 } => {
+            let a = cpu.read_gpr(rs1) as i64 as i128;
+            let b = cpu.read_gpr(rs2) as i128;
+            let v = ((a * b) >> 64) as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Mulhu { rd, rs1, rs2 } => {
+            let a = cpu.read_gpr(rs1) as u128;
+            let b = cpu.read_gpr(rs2) as u128;
+            let v = ((a * b) >> 64) as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Div { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as i64;
+            let divisor = cpu.read_gpr(rs2) as i64;
+            let v = if divisor == 0 {
+                -1i64 as u64
+            } else if dividend == i64::MIN && divisor == -1 {
+                i64::MIN as u64
+            } else {
+                (dividend / divisor) as u64
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Divu { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1);
+            let divisor = cpu.read_gpr(rs2);
+            let v = if divisor == 0 {
+                u64::MAX
+            } else {
+                dividend / divisor
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Rem { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1) as i64;
+            let divisor = cpu.read_gpr(rs2) as i64;
+            let v = if divisor == 0 {
+                dividend as u64
+            } else if dividend == i64::MIN && divisor == -1 {
+                0
+            } else {
+                (dividend % divisor) as u64
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Remu { rd, rs1, rs2 } => {
+            let dividend = cpu.read_gpr(rs1);
+            let divisor = cpu.read_gpr(rs2);
+            let v = if divisor == 0 {
+                dividend
+            } else {
+                dividend % divisor
+            };
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }

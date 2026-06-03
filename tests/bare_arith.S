@@ -20,7 +20,9 @@ _start:
 	li a2, 3
 	li a7, 64
 	ecall
-	li a0, 42
+	li a0, 6
+	li t1, 7
+	mul a0, a0, t1
 	li a7, 93
 	ecall
 msg:

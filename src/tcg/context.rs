@@ -178,6 +178,134 @@ impl TcgContext {
         });
     }
 
+    pub fn gen_mul_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::MulI64,
+            args,
+        });
+    }
+
+    pub fn gen_mulh_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::MulhI64,
+            args,
+        });
+    }
+
+    pub fn gen_mulhsu_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::MulhsuI64,
+            args,
+        });
+    }
+
+    pub fn gen_mulhu_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::MulhuI64,
+            args,
+        });
+    }
+
+    pub fn gen_divs_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::DivsI64,
+            args,
+        });
+    }
+
+    pub fn gen_divu_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::DivuI64,
+            args,
+        });
+    }
+
+    pub fn gen_rems_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::RemsI64,
+            args,
+        });
+    }
+
+    pub fn gen_remu_i64(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        s1: crate::tcg::op::TcgArg,
+        s2: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(s1);
+        args.push(s2);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::RemuI64,
+            args,
+        });
+    }
+
     pub fn gen_set_cond_i64(
         &mut self,
         dst: crate::tcg::op::TcgArg,
