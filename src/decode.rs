@@ -190,15 +190,86 @@ pub fn decode_compressed(raw: u16) -> Instr {
                 Instr::Unknown(raw as u32)
             }
         }
-        (2, 4) => {
-            let rs1 = ((raw >> 7) & 0x1f) as u8;
+        (1, 3) => {
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let imm5 = ((raw >> 12) & 1) as u64;
+            let imm40 = ((raw >> 2) & 0x1f) as u64;
+            let imm = sign_extend((imm5 << 5) | imm40, 6) as i64;
+            if rd != 0 && rd != 2 {
+                Instr::Lui { rd, imm: imm << 12 }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (1, 4) => {
             let bit12 = (raw >> 12) & 1;
-            if bit12 == 0 && rs1 != 0 {
-                // c.jr rs1
-                Instr::Jalr { rd: 0, rs1, imm: 0 }
-            } else if bit12 == 1 && rs1 != 0 {
-                // c.jalr rs1
-                Instr::Jalr { rd: 1, rs1, imm: 0 }
+            let f2 = (raw >> 5) & 3;
+            let rdp = 8 + ((raw >> 7) & 7) as u8;
+            let rs2p = 8 + ((raw >> 2) & 7) as u8;
+            if bit12 == 0 {
+                match f2 {
+                    0 => Instr::Sub { rd: rdp, rs1: rdp, rs2: rs2p },
+                    1 => Instr::Xor { rd: rdp, rs1: rdp, rs2: rs2p },
+                    2 => Instr::Or { rd: rdp, rs1: rdp, rs2: rs2p },
+                    3 => Instr::And { rd: rdp, rs1: rdp, rs2: rs2p },
+                    _ => Instr::Unknown(raw as u32),
+                }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (1, 5) => {
+            // c.j
+            let mut imm = 0u64;
+            imm |= (((raw >> 12) & 1) as u64) << 11;
+            imm |= (((raw >> 8) & 1) as u64) << 10;
+            imm |= (((raw >> 9) & 3) as u64) << 8;
+            imm |= (((raw >> 6) & 1) as u64) << 7;
+            imm |= (((raw >> 7) & 1) as u64) << 6;
+            imm |= (((raw >> 2) & 1) as u64) << 5;
+            imm |= (((raw >> 11) & 1) as u64) << 4;
+            imm |= (((raw >> 3) & 7) as u64) << 1;
+            let imm = sign_extend(imm, 12) as i64;
+            Instr::Jal { rd: 0, imm }
+        }
+        (1, 6) => {
+            // c.beqz
+            let rs1 = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 12) & 1) as u64) << 8;
+            imm |= (((raw >> 5) & 3) as u64) << 6;
+            imm |= (((raw >> 2) & 1) as u64) << 5;
+            imm |= (((raw >> 10) & 3) as u64) << 3;
+            imm |= (((raw >> 3) & 3) as u64) << 1;
+            let imm = sign_extend(imm, 9) as i64;
+            Instr::Beq { rs1, rs2: 0, imm }
+        }
+        (1, 7) => {
+            // c.bnez
+            let rs1 = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 12) & 1) as u64) << 8;
+            imm |= (((raw >> 5) & 3) as u64) << 6;
+            imm |= (((raw >> 2) & 1) as u64) << 5;
+            imm |= (((raw >> 10) & 3) as u64) << 3;
+            imm |= (((raw >> 3) & 3) as u64) << 1;
+            let imm = sign_extend(imm, 9) as i64;
+            Instr::Bne { rs1, rs2: 0, imm }
+        }
+        (2, 4) => {
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let rs2 = ((raw >> 2) & 0x1f) as u8;
+            let bit12 = (raw >> 12) & 1;
+            if bit12 == 0 && rs2 == 0 && rd != 0 {
+                Instr::Jalr { rd: 0, rs1: rd, imm: 0 }
+            } else if bit12 == 0 && rs2 != 0 && rd != 0 {
+                // c.mv rd, rs2
+                Instr::Add { rd, rs1: 0, rs2 }
+            } else if bit12 == 1 && rs2 == 0 && rd != 0 {
+                Instr::Jalr { rd: 1, rs1: rd, imm: 0 }
+            } else if bit12 == 1 && rs2 != 0 && rd != 0 {
+                // c.add rd, rd, rs2
+                Instr::Add { rd, rs1: rd, rs2 }
             } else {
                 Instr::Unknown(raw as u32)
             }

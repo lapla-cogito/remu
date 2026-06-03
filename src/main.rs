@@ -36,6 +36,9 @@ fn main() -> anyhow::Result<()> {
             let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
             crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
             cpu.pc = end_pc;
+            if cpu.pc == block_start {
+                return Ok(());
+            }
             // If ended at unhandled control (branch), execute it with interp to update pc
             if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
                 && matches!(last, crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. })
@@ -51,6 +54,9 @@ fn main() -> anyhow::Result<()> {
             let mem_base = mem.mem_ptr();
             f(gpr, mem_base);
             cpu.pc = end_pc;
+            if cpu.pc == block_start {
+                return Ok(());
+            }
             if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
                 && matches!(last, crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. })
             {
@@ -68,17 +74,32 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::process::Command;
     #[test]
     fn interp_matches_tcg_interp() {
         let asm = "tests/bare_hello.S";
-        let _ = Command::new("riscv64-linux-gnu-as").args(["-march=rv64gc", asm, "-o", "/tmp/hello.o"]).status();
-        let _ = Command::new("riscv64-linux-gnu-ld").args(["-o", "/tmp/hello", "/tmp/hello.o"]).status();
+        let _ = std::process::Command::new("riscv64-linux-gnu-as").args(["-march=rv64gc", asm, "-o", "/tmp/hello.o"]).status();
+        let _ = std::process::Command::new("riscv64-linux-gnu-ld").args(["-o", "/tmp/hello", "/tmp/hello.o"]).status();
         let hello = "/tmp/hello";
         let remu = "./target/debug/remu";
-        let out1 = Command::new(remu).args(["--mode", "interp", hello]).output().expect("interp");
-        let out2 = Command::new(remu).args(["--mode", "tcg-interp", hello]).output().expect("tcg");
-        let out3 = Command::new(remu).args(["--mode", "jit", hello]).output().expect("jit");
+        let out1 = std::process::Command::new(remu).args(["--mode", "interp", hello]).output().expect("interp");
+        let out2 = std::process::Command::new(remu).args(["--mode", "tcg-interp", hello]).output().expect("tcg");
+        let out3 = std::process::Command::new(remu).args(["--mode", "jit", hello]).output().expect("jit");
+        assert_eq!(out1.status, out2.status);
+        assert_eq!(out1.stdout, out2.stdout);
+        assert_eq!(out1.status, out3.status);
+        assert_eq!(out1.stdout, out3.stdout);
+    }
+
+    #[test]
+    fn c_ext_matches_all_modes() {
+        let asm = "tests/bare_hello_c.S";
+        let _ = std::process::Command::new("riscv64-linux-gnu-as").args(["-march=rv64gc", asm, "-o", "/tmp/hello_c.o"]).status();
+        let _ = std::process::Command::new("riscv64-linux-gnu-ld").args(["-o", "/tmp/hello_c", "/tmp/hello_c.o"]).status();
+        let hello = "/tmp/hello_c";
+        let remu = "./target/debug/remu";
+        let out1 = std::process::Command::new(remu).args(["--mode", "interp", hello]).output().expect("interp");
+        let out2 = std::process::Command::new(remu).args(["--mode", "tcg-interp", hello]).output().expect("tcg");
+        let out3 = std::process::Command::new(remu).args(["--mode", "jit", hello]).output().expect("jit");
         assert_eq!(out1.status, out2.status);
         assert_eq!(out1.stdout, out2.stdout);
         assert_eq!(out1.status, out3.status);
