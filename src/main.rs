@@ -51,3 +51,20 @@ fn main() -> anyhow::Result<()> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::process::Command;
+    #[test]
+    fn interp_matches_tcg_interp() {
+        let asm = "tests/bare_hello.S";
+        let _ = Command::new("riscv64-linux-gnu-as").args(["-march=rv64gc", asm, "-o", "/tmp/hello.o"]).status();
+        let _ = Command::new("riscv64-linux-gnu-ld").args(["-o", "/tmp/hello", "/tmp/hello.o"]).status();
+        let hello = "/tmp/hello";
+        let remu = "./target/debug/remu";
+        let out1 = Command::new(remu).args(["--mode", "interp", hello]).output().expect("interp");
+        let out2 = Command::new(remu).args(["--mode", "tcg-interp", hello]).output().expect("tcg");
+        assert_eq!(out1.status, out2.status);
+        assert_eq!(out1.stdout, out2.stdout);
+    }
+}
