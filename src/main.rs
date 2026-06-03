@@ -23,10 +23,18 @@ fn main() -> anyhow::Result<()> {
     let mut cpu = crate::cpu::Cpu::new(0);
     let mut mem = crate::memory::GuestMemory::new();
     crate::elf_loader::load_elf(&args.elf, &mut cpu, &mut mem)?;
-    println!("loaded entry {:#x} sp {:#x}", cpu.pc, cpu.read_gpr(2));
     if args.trace {
-        println!("trace enabled (not yet)");
+        println!("trace: entry {:#x}", cpu.pc);
     }
-    println!("mode: {}", args.mode);
-    Ok(())
+    if args.mode != "interp" {
+        anyhow::bail!("only interp mode supported");
+    }
+    let mut steps: u64 = 0;
+    loop {
+        crate::interp::step(&mut cpu, &mut mem)?;
+        steps += 1;
+        if steps > 10_000_000 {
+            anyhow::bail!("step limit");
+        }
+    }
 }

@@ -179,7 +179,7 @@ pub fn decode_compressed(raw: u16) -> Instr {
                 Instr::Unknown(raw as u32)
             }
         }
-        (2, 0) => {
+        (1, 2) => {
             let rd = ((raw >> 7) & 0x1f) as u8;
             let imm5 = ((raw >> 12) & 1) as u64;
             let imm40 = ((raw >> 2) & 0x1f) as u64;
