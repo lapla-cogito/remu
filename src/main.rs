@@ -7,7 +7,7 @@ mod interp;
 mod tcg;
 
 #[derive(clap::Parser)]
-#[command(version, about = "remu - RISC-V emulator with TCG")]
+#[command(version, about = "remu - RISC-V rv64gc emulator with TCG (interp/tcg-interp/jit modes)")]
 struct Args {
     #[arg(long, default_value = "interp")]
     mode: String,
