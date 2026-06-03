@@ -1,4 +1,7 @@
-pub fn handle_ecall(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> anyhow::Result<Option<i32>> {
+pub fn handle_ecall(
+    cpu: &mut crate::cpu::Cpu,
+    mem: &mut crate::memory::GuestMemory,
+) -> anyhow::Result<Option<i32>> {
     let nr = cpu.read_gpr(17);
     match nr {
         64 => {

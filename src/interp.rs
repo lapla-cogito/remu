@@ -51,12 +51,20 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.pc = npc;
         }
         crate::decode::Instr::Slt { rd, rs1, rs2 } => {
-            let v = if (cpu.read_gpr(rs1) as i64) < (cpu.read_gpr(rs2) as i64) { 1 } else { 0 };
+            let v = if (cpu.read_gpr(rs1) as i64) < (cpu.read_gpr(rs2) as i64) {
+                1
+            } else {
+                0
+            };
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
         crate::decode::Instr::Sltu { rd, rs1, rs2 } => {
-            let v = if cpu.read_gpr(rs1) < cpu.read_gpr(rs2) { 1 } else { 0 };
+            let v = if cpu.read_gpr(rs1) < cpu.read_gpr(rs2) {
+                1
+            } else {
+                0
+            };
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }

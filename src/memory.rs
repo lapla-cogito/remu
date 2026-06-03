@@ -4,7 +4,9 @@ pub struct GuestMemory {
 
 impl GuestMemory {
     pub fn new() -> Self {
-        Self { data: vec![0; 1 << 28] }
+        Self {
+            data: vec![0; 1 << 28],
+        }
     }
 
     pub fn read_u8(&self, addr: u64) -> anyhow::Result<u8> {

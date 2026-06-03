@@ -1,4 +1,8 @@
-pub fn translate_block(start_pc: u64, mem: &crate::memory::GuestMemory, max_insns: u32) -> (crate::tcg::context::TcgContext, u64) {
+pub fn translate_block(
+    start_pc: u64,
+    mem: &crate::memory::GuestMemory,
+    max_insns: u32,
+) -> (crate::tcg::context::TcgContext, u64) {
     let mut ctx = crate::tcg::context::TcgContext::new();
     let mut pc = start_pc;
     let mut count: u32 = 0;
@@ -334,7 +338,9 @@ pub fn translate_block(start_pc: u64, mem: &crate::memory::GuestMemory, max_insn
                 ctx.gen_exit_tb();
                 break;
             }
-            crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. } => {
+            crate::decode::Instr::Bge { .. }
+            | crate::decode::Instr::Bltu { .. }
+            | crate::decode::Instr::Bgeu { .. } => {
                 break;
             }
             crate::decode::Instr::Unknown(_) => {

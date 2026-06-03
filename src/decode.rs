@@ -72,7 +72,11 @@ pub fn decode(raw: u32) -> Instr {
                 }
                 5 => {
                     let shamt = (raw >> 20) & 0x3f;
-                    if funct7 == 0 { Instr::Srli { rd, rs1, shamt } } else { Instr::Srai { rd, rs1, shamt } }
+                    if funct7 == 0 {
+                        Instr::Srli { rd, rs1, shamt }
+                    } else {
+                        Instr::Srai { rd, rs1, shamt }
+                    }
                 }
                 _ => Instr::Unknown(raw),
             }
@@ -82,21 +86,19 @@ pub fn decode(raw: u32) -> Instr {
             let imm = sign_extend(imm20 as u64, 32) as i64;
             Instr::Auipc { rd, imm }
         }
-        0x33 => {
-            match (funct3, funct7) {
-                (0, 0) => Instr::Add { rd, rs1, rs2 },
-                (0, 0x20) => Instr::Sub { rd, rs1, rs2 },
-                (1, 0) => Instr::Sll { rd, rs1, rs2 },
-                (2, 0) => Instr::Slt { rd, rs1, rs2 },
-                (3, 0) => Instr::Sltu { rd, rs1, rs2 },
-                (4, 0) => Instr::Xor { rd, rs1, rs2 },
-                (5, 0) => Instr::Srl { rd, rs1, rs2 },
-                (5, 0x20) => Instr::Sra { rd, rs1, rs2 },
-                (6, 0) => Instr::Or { rd, rs1, rs2 },
-                (7, 0) => Instr::And { rd, rs1, rs2 },
-                _ => Instr::Unknown(raw),
-            }
-        }
+        0x33 => match (funct3, funct7) {
+            (0, 0) => Instr::Add { rd, rs1, rs2 },
+            (0, 0x20) => Instr::Sub { rd, rs1, rs2 },
+            (1, 0) => Instr::Sll { rd, rs1, rs2 },
+            (2, 0) => Instr::Slt { rd, rs1, rs2 },
+            (3, 0) => Instr::Sltu { rd, rs1, rs2 },
+            (4, 0) => Instr::Xor { rd, rs1, rs2 },
+            (5, 0) => Instr::Srl { rd, rs1, rs2 },
+            (5, 0x20) => Instr::Sra { rd, rs1, rs2 },
+            (6, 0) => Instr::Or { rd, rs1, rs2 },
+            (7, 0) => Instr::And { rd, rs1, rs2 },
+            _ => Instr::Unknown(raw),
+        },
         0x37 => {
             let imm20 = raw & 0xfffff000;
             let imm = sign_extend(imm20 as u64, 32) as i64;
@@ -208,10 +210,26 @@ pub fn decode_compressed(raw: u16) -> Instr {
             let rs2p = 8 + ((raw >> 2) & 7) as u8;
             if bit12 == 0 {
                 match f2 {
-                    0 => Instr::Sub { rd: rdp, rs1: rdp, rs2: rs2p },
-                    1 => Instr::Xor { rd: rdp, rs1: rdp, rs2: rs2p },
-                    2 => Instr::Or { rd: rdp, rs1: rdp, rs2: rs2p },
-                    3 => Instr::And { rd: rdp, rs1: rdp, rs2: rs2p },
+                    0 => Instr::Sub {
+                        rd: rdp,
+                        rs1: rdp,
+                        rs2: rs2p,
+                    },
+                    1 => Instr::Xor {
+                        rd: rdp,
+                        rs1: rdp,
+                        rs2: rs2p,
+                    },
+                    2 => Instr::Or {
+                        rd: rdp,
+                        rs1: rdp,
+                        rs2: rs2p,
+                    },
+                    3 => Instr::And {
+                        rd: rdp,
+                        rs1: rdp,
+                        rs2: rs2p,
+                    },
                     _ => Instr::Unknown(raw as u32),
                 }
             } else {
@@ -261,12 +279,20 @@ pub fn decode_compressed(raw: u16) -> Instr {
             let rs2 = ((raw >> 2) & 0x1f) as u8;
             let bit12 = (raw >> 12) & 1;
             if bit12 == 0 && rs2 == 0 && rd != 0 {
-                Instr::Jalr { rd: 0, rs1: rd, imm: 0 }
+                Instr::Jalr {
+                    rd: 0,
+                    rs1: rd,
+                    imm: 0,
+                }
             } else if bit12 == 0 && rs2 != 0 && rd != 0 {
                 // c.mv rd, rs2
                 Instr::Add { rd, rs1: 0, rs2 }
             } else if bit12 == 1 && rs2 == 0 && rd != 0 {
-                Instr::Jalr { rd: 1, rs1: rd, imm: 0 }
+                Instr::Jalr {
+                    rd: 1,
+                    rs1: rd,
+                    imm: 0,
+                }
             } else if bit12 == 1 && rs2 != 0 && rd != 0 {
                 // c.add rd, rd, rs2
                 Instr::Add { rd, rs1: rd, rs2 }

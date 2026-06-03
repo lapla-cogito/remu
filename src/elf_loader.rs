@@ -1,4 +1,8 @@
-pub fn load_elf(path: &str, cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> anyhow::Result<()> {
+pub fn load_elf(
+    path: &str,
+    cpu: &mut crate::cpu::Cpu,
+    mem: &mut crate::memory::GuestMemory,
+) -> anyhow::Result<()> {
     let file_data = std::fs::read(path)?;
     let elf = goblin::elf::Elf::parse(&file_data)?;
     if !elf.is_64 {
@@ -34,7 +38,11 @@ fn push_u64(mem: &mut crate::memory::GuestMemory, mut sp: u64, v: u64) -> anyhow
     Ok(sp)
 }
 
-fn setup_minimal_stack(mem: &mut crate::memory::GuestMemory, mut sp: u64, elf: &goblin::elf::Elf) -> anyhow::Result<u64> {
+fn setup_minimal_stack(
+    mem: &mut crate::memory::GuestMemory,
+    mut sp: u64,
+    elf: &goblin::elf::Elf,
+) -> anyhow::Result<u64> {
     let prog_name = b"a.out\0";
     sp -= prog_name.len() as u64;
     let argv0 = sp;
