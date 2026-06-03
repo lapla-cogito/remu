@@ -7,6 +7,11 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
+        crate::decode::Instr::Addiw { rd, rs1, imm } => {
+            let v = (cpu.read_gpr(rs1) as i32).wrapping_add(imm as i32) as i64 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
         crate::decode::Instr::Add { rd, rs1, rs2 } => {
             let v = cpu.read_gpr(rs1).wrapping_add(cpu.read_gpr(rs2));
             cpu.write_gpr(rd, v);
@@ -19,6 +24,11 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::And { rd, rs1, rs2 } => {
             let v = cpu.read_gpr(rs1) & cpu.read_gpr(rs2);
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Andi { rd, rs1, imm } => {
+            let v = cpu.read_gpr(rs1) & (imm as u64);
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
@@ -167,6 +177,24 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
+        crate::decode::Instr::Lbu { rd, rs1, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let v = mem.read_u8(a)? as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Lhu { rd, rs1, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let v = mem.read_u16(a)? as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Lwu { rd, rs1, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let v = mem.read_u32(a)? as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
         crate::decode::Instr::Sb { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
             mem.write_u8(a, cpu.read_gpr(rs2) as u8)?;
@@ -179,7 +207,8 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::Sw { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
-            mem.write_u32(a, cpu.read_gpr(rs2) as u32)?;
+            let val = cpu.read_gpr(rs2) as u32;
+            mem.write_u32(a, val)?;
             cpu.pc = npc;
         }
         crate::decode::Instr::Sd { rs1, rs2, imm } => {

@@ -186,7 +186,55 @@ pub fn execute_tcg(
                     cpu.write_gpr(*r as u8, temps[*s as usize]);
                 }
             }
-            crate::tcg::op::TcgOpcode::QemuLdI64 => {
+            crate::tcg::op::TcgOpcode::QemuLd8Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u8(addr).unwrap_or(0) as i8 as i64 as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd8Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u8(addr).unwrap_or(0) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd16Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u16(addr).unwrap_or(0) as i16 as i64 as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd16Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u16(addr).unwrap_or(0) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd32Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u32(addr).unwrap_or(0) as i32 as i64 as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd32Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    temps[*d as usize] = mem.read_u32(addr).unwrap_or(0) as u64;
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd64 => {
                 if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
                     (&op.args[0], &op.args[1])
                 {
@@ -194,7 +242,31 @@ pub fn execute_tcg(
                     temps[*d as usize] = mem.read_u64(addr).unwrap_or(0);
                 }
             }
-            crate::tcg::op::TcgOpcode::QemuStI64 => {
+            crate::tcg::op::TcgOpcode::QemuSt8 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    let _ = mem.write_u8(addr, temps[*s as usize] as u8);
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt16 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    let _ = mem.write_u16(addr, temps[*s as usize] as u16);
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt32 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let addr = temps[*a as usize];
+                    let _ = mem.write_u32(addr, temps[*s as usize] as u32);
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt64 => {
                 if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
                     (&op.args[0], &op.args[1])
                 {

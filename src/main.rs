@@ -150,4 +150,25 @@ mod tests {
         assert_eq!(out1.status, out3.status);
         assert_eq!(out1.stdout, out3.stdout);
     }
+
+    #[test]
+    fn mem_matches_all_modes() {
+        let asm = "tests/bare_mem.S";
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
+            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_mem.o"])
+            .status();
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
+            .args(["-o", "/tmp/bare_mem", "/tmp/bare_mem.o"])
+            .status();
+        let elf = "/tmp/bare_mem";
+        let remu = "./target/debug/remu";
+        for &mode in &["interp", "tcg-interp", "jit"] {
+            let out = ::std::process::Command::new(remu)
+                .args(["--mode", mode, elf])
+                .output()
+                .expect(mode);
+            assert_eq!(out.status.code(), Some(42), "{}", mode);
+            assert_eq!(out.stdout, b"MEMTEST\n", "{}", mode);
+        }
+    }
 }

@@ -1,10 +1,12 @@
 pub enum Instr {
     Addi { rd: u8, rs1: u8, imm: i64 },
+    Addiw { rd: u8, rs1: u8, imm: i64 },
     Add { rd: u8, rs1: u8, rs2: u8 },
     Sub { rd: u8, rs1: u8, rs2: u8 },
     And { rd: u8, rs1: u8, rs2: u8 },
     Or { rd: u8, rs1: u8, rs2: u8 },
     Xor { rd: u8, rs1: u8, rs2: u8 },
+    Andi { rd: u8, rs1: u8, imm: i64 },
     Sll { rd: u8, rs1: u8, rs2: u8 },
     Srl { rd: u8, rs1: u8, rs2: u8 },
     Sra { rd: u8, rs1: u8, rs2: u8 },
@@ -27,6 +29,9 @@ pub enum Instr {
     Lh { rd: u8, rs1: u8, imm: i64 },
     Lw { rd: u8, rs1: u8, imm: i64 },
     Ld { rd: u8, rs1: u8, imm: i64 },
+    Lbu { rd: u8, rs1: u8, imm: i64 },
+    Lhu { rd: u8, rs1: u8, imm: i64 },
+    Lwu { rd: u8, rs1: u8, imm: i64 },
     Sb { rs1: u8, rs2: u8, imm: i64 },
     Sh { rs1: u8, rs2: u8, imm: i64 },
     Sw { rs1: u8, rs2: u8, imm: i64 },
@@ -78,6 +83,14 @@ pub fn decode(raw: u32) -> Instr {
                         Instr::Srai { rd, rs1, shamt }
                     }
                 }
+                _ => Instr::Unknown(raw),
+            }
+        }
+        0x1b => {
+            let imm12 = (raw >> 20) & 0xfff;
+            let imm = sign_extend(imm12 as u64, 12) as i64;
+            match funct3 {
+                0 => Instr::Addiw { rd, rs1, imm },
                 _ => Instr::Unknown(raw),
             }
         }
@@ -141,6 +154,9 @@ pub fn decode(raw: u32) -> Instr {
                 1 => Instr::Lh { rd, rs1, imm },
                 2 => Instr::Lw { rd, rs1, imm },
                 3 => Instr::Ld { rd, rs1, imm },
+                4 => Instr::Lbu { rd, rs1, imm },
+                5 => Instr::Lhu { rd, rs1, imm },
+                6 => Instr::Lwu { rd, rs1, imm },
                 _ => Instr::Unknown(raw),
             }
         }
@@ -194,10 +210,20 @@ pub fn decode_compressed(raw: u16) -> Instr {
         }
         (1, 3) => {
             let rd = ((raw >> 7) & 0x1f) as u8;
-            let imm5 = ((raw >> 12) & 1) as u64;
-            let imm40 = ((raw >> 2) & 0x1f) as u64;
-            let imm = sign_extend((imm5 << 5) | imm40, 6) as i64;
-            if rd != 0 && rd != 2 {
+            if rd == 2 {
+                // c.addi16sp
+                let mut imm = 0u64;
+                imm |= (((raw >> 12) & 1) as u64) << 9;
+                imm |= (((raw >> 3) & 3) as u64) << 7;
+                imm |= (((raw >> 5) & 1) as u64) << 6;
+                imm |= (((raw >> 2) & 1) as u64) << 5;
+                imm |= (((raw >> 4) & 1) as u64) << 4;
+                let imm = sign_extend(imm, 10) as i64;
+                Instr::Addi { rd: 2, rs1: 2, imm }
+            } else if rd != 0 {
+                let imm5 = ((raw >> 12) & 1) as u64;
+                let imm40 = ((raw >> 2) & 0x1f) as u64;
+                let imm = sign_extend((imm5 << 5) | imm40, 6) as i64;
                 Instr::Lui { rd, imm: imm << 12 }
             } else {
                 Instr::Unknown(raw as u32)
@@ -205,11 +231,35 @@ pub fn decode_compressed(raw: u16) -> Instr {
         }
         (1, 4) => {
             let bit12 = (raw >> 12) & 1;
-            let f2 = (raw >> 5) & 3;
+            let funct2 = (raw >> 10) & 3;
             let rdp = 8 + ((raw >> 7) & 7) as u8;
-            let rs2p = 8 + ((raw >> 2) & 7) as u8;
-            if bit12 == 0 {
-                match f2 {
+            if funct2 == 0 {
+                let shamt = ((raw >> 2) & 0x1f) as u32;
+                Instr::Srli {
+                    rd: rdp,
+                    rs1: rdp,
+                    shamt,
+                }
+            } else if funct2 == 1 {
+                let shamt = ((raw >> 2) & 0x1f) as u32;
+                Instr::Srai {
+                    rd: rdp,
+                    rs1: rdp,
+                    shamt,
+                }
+            } else if funct2 == 2 {
+                let imm5 = bit12 as u64;
+                let imm40 = ((raw >> 2) & 0x1f) as u64;
+                let imm = sign_extend((imm5 << 5) | imm40, 6) as i64;
+                Instr::Andi {
+                    rd: rdp,
+                    rs1: rdp,
+                    imm,
+                }
+            } else if funct2 == 3 && bit12 == 0 {
+                let rs2p = 8 + ((raw >> 2) & 7) as u8;
+                let f2b = (raw >> 5) & 3;
+                match f2b {
                     0 => Instr::Sub {
                         rd: rdp,
                         rs1: rdp,
@@ -273,6 +323,160 @@ pub fn decode_compressed(raw: u16) -> Instr {
             imm |= (((raw >> 3) & 3) as u64) << 1;
             let imm = sign_extend(imm, 9) as i64;
             Instr::Bne { rs1, rs2: 0, imm }
+        }
+        (0, 0) => {
+            // c.addi4spn
+            let rdp = 8 + ((raw >> 2) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 5) & 1) as u64) << 3;
+            imm |= (((raw >> 6) & 1) as u64) << 2;
+            imm |= (((raw >> 10) & 7) as u64) << 6;
+            imm |= (((raw >> 7) & 3) as u64) << 4;
+            let imm = sign_extend(imm, 10) as i64; // nzuimm
+            if rdp != 0 && imm != 0 {
+                Instr::Addi {
+                    rd: rdp,
+                    rs1: 2,
+                    imm,
+                }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (0, 2) => {
+            // c.lw
+            let rdp = 8 + ((raw >> 2) & 7) as u8;
+            let rs1p = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 6) & 1) as u64) << 2;
+            imm |= (((raw >> 10) & 7) as u64) << 3;
+            imm |= (((raw >> 5) & 1) as u64) << 6;
+            Instr::Lw {
+                rd: rdp,
+                rs1: rs1p,
+                imm: imm as i64,
+            }
+        }
+        (0, 3) => {
+            // c.ld
+            let rdp = 8 + ((raw >> 2) & 7) as u8;
+            let rs1p = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 6) & 1) as u64) << 3;
+            imm |= (((raw >> 10) & 7) as u64) << 4;
+            imm |= (((raw >> 5) & 1) as u64) << 7;
+            Instr::Ld {
+                rd: rdp,
+                rs1: rs1p,
+                imm: imm as i64,
+            }
+        }
+        (0, 6) => {
+            // c.sw
+            let rs2p = 8 + ((raw >> 2) & 7) as u8;
+            let rs1p = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 6) & 1) as u64) << 2;
+            imm |= (((raw >> 10) & 7) as u64) << 3;
+            imm |= (((raw >> 5) & 1) as u64) << 6;
+            Instr::Sw {
+                rs1: rs1p,
+                rs2: rs2p,
+                imm: imm as i64,
+            }
+        }
+        (0, 7) => {
+            // c.sd
+            let rs2p = 8 + ((raw >> 2) & 7) as u8;
+            let rs1p = 8 + ((raw >> 7) & 7) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 6) & 1) as u64) << 3;
+            imm |= (((raw >> 10) & 7) as u64) << 4;
+            imm |= (((raw >> 5) & 1) as u64) << 7;
+            Instr::Sd {
+                rs1: rs1p,
+                rs2: rs2p,
+                imm: imm as i64,
+            }
+        }
+        (2, 0) => {
+            // c.slli
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let shamt = ((raw >> 2) & 0x3f) as u32;
+            if rd != 0 {
+                Instr::Slli { rd, rs1: rd, shamt }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (2, 2) => {
+            // c.lwsp
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 2) & 3) as u64) << 6;
+            imm |= (((raw >> 4) & 3) as u64) << 2;
+            imm |= (((raw >> 6) & 1) as u64) << 4;
+            imm |= (((raw >> 12) & 1) as u64) << 5;
+            if rd != 0 {
+                Instr::Lw {
+                    rd,
+                    rs1: 2,
+                    imm: imm as i64,
+                }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (2, 3) => {
+            // c.ldsp
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 4) & 3) as u64) << 3;
+            imm |= (((raw >> 12) & 1) as u64) << 5;
+            imm |= (((raw >> 2) & 3) as u64) << 6;
+            imm |= (((raw >> 6) & 1) as u64) << 4;
+            if rd != 0 {
+                Instr::Ld {
+                    rd,
+                    rs1: 2,
+                    imm: imm as i64,
+                }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
+        (2, 6) => {
+            // c.swsp
+            let rs2 = ((raw >> 2) & 0x1f) as u8;
+            let mut imm = 0u64;
+            if (raw >> 9) & 1 != 0 {
+                imm |= 4;
+            }
+            if (raw >> 3) & 1 != 0 {
+                imm |= 8;
+            }
+            if (raw >> 10) & 1 != 0 {
+                imm |= 4;
+            }
+            Instr::Sw {
+                rs1: 2,
+                rs2,
+                imm: imm as i64,
+            }
+        }
+        (2, 7) => {
+            // c.sdsp
+            let rs2 = ((raw >> 2) & 0x1f) as u8;
+            let mut imm = 0u64;
+            imm |= (((raw >> 4) & 3) as u64) << 3;
+            imm |= (((raw >> 12) & 1) as u64) << 5;
+            imm |= (((raw >> 2) & 3) as u64) << 6;
+            imm |= (((raw >> 6) & 1) as u64) << 4;
+            Instr::Sd {
+                rs1: 2,
+                rs2,
+                imm: imm as i64,
+            }
         }
         (2, 4) => {
             let rd = ((raw >> 7) & 0x1f) as u8;

@@ -27,6 +27,21 @@ pub fn translate_block(
                     ctx.gen_set_gpr_i64(rd, t3);
                 }
             }
+            crate::decode::Instr::Addiw { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_add_i64(t3, t1, t2);
+                    // sign extend 32->64 for *w
+                    let t4 = ctx.new_temp();
+                    ctx.gen_shl_i64(t4, t3, ctx.new_const(32));
+                    let t5 = ctx.new_temp();
+                    ctx.gen_sar_i64(t5, t4, ctx.new_const(32));
+                    ctx.gen_set_gpr_i64(rd, t5);
+                }
+            }
             crate::decode::Instr::Add { rd, rs1, rs2 } => {
                 if rd != 0 {
                     let t1 = ctx.new_temp();
@@ -55,6 +70,16 @@ pub fn translate_block(
                     ctx.gen_get_gpr_i64(t1, rs1);
                     let t2 = ctx.new_temp();
                     ctx.gen_get_gpr_i64(t2, rs2);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_and_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Andi { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
                     let t3 = ctx.new_temp();
                     ctx.gen_and_i64(t3, t1, t2);
                     ctx.gen_set_gpr_i64(rd, t3);
@@ -190,8 +215,7 @@ pub fn translate_block(
                     let timm = ctx.new_const(imm as u64);
                     ctx.gen_add_i64(taddr, trs, timm);
                     let td = ctx.new_temp();
-                    ctx.gen_qemu_ld_i64(td, taddr);
-                    // for byte, we need sign extend, but for now full 64 assume, later fix
+                    ctx.gen_qemu_ld8_signed(td, taddr);
                     ctx.gen_set_gpr_i64(rd, td);
                 }
             }
@@ -203,7 +227,7 @@ pub fn translate_block(
                     let timm = ctx.new_const(imm as u64);
                     ctx.gen_add_i64(taddr, trs, timm);
                     let td = ctx.new_temp();
-                    ctx.gen_qemu_ld_i64(td, taddr);
+                    ctx.gen_qemu_ld16_signed(td, taddr);
                     ctx.gen_set_gpr_i64(rd, td);
                 }
             }
@@ -215,7 +239,7 @@ pub fn translate_block(
                     let timm = ctx.new_const(imm as u64);
                     ctx.gen_add_i64(taddr, trs, timm);
                     let td = ctx.new_temp();
-                    ctx.gen_qemu_ld_i64(td, taddr);
+                    ctx.gen_qemu_ld32_signed(td, taddr);
                     ctx.gen_set_gpr_i64(rd, td);
                 }
             }
@@ -227,7 +251,43 @@ pub fn translate_block(
                     let timm = ctx.new_const(imm as u64);
                     ctx.gen_add_i64(taddr, trs, timm);
                     let td = ctx.new_temp();
-                    ctx.gen_qemu_ld_i64(td, taddr);
+                    ctx.gen_qemu_ld64(td, taddr);
+                    ctx.gen_set_gpr_i64(rd, td);
+                }
+            }
+            crate::decode::Instr::Lbu { rd, rs1, imm } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    let trs = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(trs, rs1);
+                    let timm = ctx.new_const(imm as u64);
+                    ctx.gen_add_i64(taddr, trs, timm);
+                    let td = ctx.new_temp();
+                    ctx.gen_qemu_ld8_unsigned(td, taddr);
+                    ctx.gen_set_gpr_i64(rd, td);
+                }
+            }
+            crate::decode::Instr::Lhu { rd, rs1, imm } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    let trs = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(trs, rs1);
+                    let timm = ctx.new_const(imm as u64);
+                    ctx.gen_add_i64(taddr, trs, timm);
+                    let td = ctx.new_temp();
+                    ctx.gen_qemu_ld16_unsigned(td, taddr);
+                    ctx.gen_set_gpr_i64(rd, td);
+                }
+            }
+            crate::decode::Instr::Lwu { rd, rs1, imm } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    let trs = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(trs, rs1);
+                    let timm = ctx.new_const(imm as u64);
+                    ctx.gen_add_i64(taddr, trs, timm);
+                    let td = ctx.new_temp();
+                    ctx.gen_qemu_ld32_unsigned(td, taddr);
                     ctx.gen_set_gpr_i64(rd, td);
                 }
             }
@@ -239,7 +299,7 @@ pub fn translate_block(
                 ctx.gen_add_i64(taddr, trs1, timm);
                 let trs2 = ctx.new_temp();
                 ctx.gen_get_gpr_i64(trs2, rs2);
-                ctx.gen_qemu_st_i64(trs2, taddr);
+                ctx.gen_qemu_st8(trs2, taddr);
             }
             crate::decode::Instr::Sh { rs1, rs2, imm } => {
                 let taddr = ctx.new_temp();
@@ -249,7 +309,7 @@ pub fn translate_block(
                 ctx.gen_add_i64(taddr, trs1, timm);
                 let trs2 = ctx.new_temp();
                 ctx.gen_get_gpr_i64(trs2, rs2);
-                ctx.gen_qemu_st_i64(trs2, taddr);
+                ctx.gen_qemu_st16(trs2, taddr);
             }
             crate::decode::Instr::Sw { rs1, rs2, imm } => {
                 let taddr = ctx.new_temp();
@@ -259,7 +319,7 @@ pub fn translate_block(
                 ctx.gen_add_i64(taddr, trs1, timm);
                 let trs2 = ctx.new_temp();
                 ctx.gen_get_gpr_i64(trs2, rs2);
-                ctx.gen_qemu_st_i64(trs2, taddr);
+                ctx.gen_qemu_st32(trs2, taddr);
             }
             crate::decode::Instr::Sd { rs1, rs2, imm } => {
                 let taddr = ctx.new_temp();
@@ -269,7 +329,7 @@ pub fn translate_block(
                 ctx.gen_add_i64(taddr, trs1, timm);
                 let trs2 = ctx.new_temp();
                 ctx.gen_get_gpr_i64(trs2, rs2);
-                ctx.gen_qemu_st_i64(trs2, taddr);
+                ctx.gen_qemu_st64(trs2, taddr);
             }
             crate::decode::Instr::Jal { rd, imm: _ } => {
                 if rd != 0 {

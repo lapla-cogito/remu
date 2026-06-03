@@ -196,22 +196,136 @@ impl TcgContext {
         });
     }
 
-    pub fn gen_qemu_ld_i64(&mut self, dst: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+    pub fn gen_qemu_ld8_signed(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
         let mut args = smallvec::SmallVec::new();
         args.push(dst);
         args.push(addr);
         self.ops.push(crate::tcg::op::TcgOp {
-            opc: crate::tcg::op::TcgOpcode::QemuLdI64,
+            opc: crate::tcg::op::TcgOpcode::QemuLd8Signed,
             args,
         });
     }
 
-    pub fn gen_qemu_st_i64(&mut self, src: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+    pub fn gen_qemu_ld8_unsigned(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd8Unsigned,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_ld16_signed(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd16Signed,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_ld16_unsigned(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd16Unsigned,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_ld32_signed(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd32Signed,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_ld32_unsigned(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd32Unsigned,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_ld64(&mut self, dst: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuLd64,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_st8(&mut self, src: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(src);
         args.push(addr);
         self.ops.push(crate::tcg::op::TcgOp {
-            opc: crate::tcg::op::TcgOpcode::QemuStI64,
+            opc: crate::tcg::op::TcgOpcode::QemuSt8,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_st16(&mut self, src: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(src);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuSt16,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_st32(&mut self, src: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(src);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuSt32,
+            args,
+        });
+    }
+
+    pub fn gen_qemu_st64(&mut self, src: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(src);
+        args.push(addr);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::QemuSt64,
             args,
         });
     }

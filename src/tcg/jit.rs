@@ -275,6 +275,226 @@ pub fn compile(
                     );
                 }
             }
+            crate::tcg::op::TcgOpcode::QemuLd8Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; movsx rax, BYTE [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd8Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; movzx rax, BYTE [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd16Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; movsx rax, WORD [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd16Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; movzx rax, WORD [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd32Signed => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; movsxd rax, DWORD [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd32Unsigned => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; mov eax, DWORD [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuLd64 => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_a]
+                        ; mov rdx, [rbp - 16]
+                        ; mov rax, [rdx + rax]
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt8 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_s = temp_base - (s as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s]
+                        ; mov rdx, [rbp - 16]
+                        ; mov rcx, [rbp + off_a]
+                        ; mov BYTE [rdx + rcx], al
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt16 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_s = temp_base - (s as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s]
+                        ; mov rdx, [rbp - 16]
+                        ; mov rcx, [rbp + off_a]
+                        ; mov WORD [rdx + rcx], ax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt32 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_s = temp_base - (s as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s]
+                        ; mov rdx, [rbp - 16]
+                        ; mov rcx, [rbp + off_a]
+                        ; mov DWORD [rdx + rcx], eax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::QemuSt64 => {
+                if let (crate::tcg::op::TcgArg::Temp(s), crate::tcg::op::TcgArg::Temp(a)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_s = temp_base - (s as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s]
+                        ; mov rdx, [rbp - 16]
+                        ; mov rcx, [rbp + off_a]
+                        ; mov [rdx + rcx], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::ShlI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s1]
+                        ; mov rcx, [rbp + off_s2]
+                        ; shl rax, cl
+                        ; mov [rbp + off_d], rax
+                    );
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Const(c),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let ci = c as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s1]
+                        ; mov rcx, QWORD ci
+                        ; shl rax, cl
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::SarI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s1]
+                        ; mov rcx, [rbp + off_s2]
+                        ; sar rax, cl
+                        ; mov [rbp + off_d], rax
+                    );
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Const(c),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let ci = c as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s1]
+                        ; mov rcx, QWORD ci
+                        ; sar rax, cl
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
             crate::tcg::op::TcgOpcode::Call => {
                 if let (crate::tcg::op::TcgArg::Const(h), _) = (op.args[0], op.args[1])
                     && h == 0
