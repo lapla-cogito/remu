@@ -7,8 +7,8 @@ pub fn handle_ecall(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMem
             let len = cpu.read_gpr(12) as usize;
             if fd == 1 || fd == 2 {
                 let mut data = vec![0u8; len];
-                for i in 0..len {
-                    data[i] = mem.read_u8(buf_addr + i as u64)?;
+                for (i, byte) in data.iter_mut().enumerate() {
+                    *byte = mem.read_u8(buf_addr + i as u64)?;
                 }
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();

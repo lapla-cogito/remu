@@ -5,6 +5,16 @@ pub struct TcgContext {
 }
 
 impl TcgContext {
+    pub fn num_temps(&self) -> u32 {
+        self.next_temp
+    }
+
+    pub fn num_labels(&self) -> u32 {
+        self.next_label
+    }
+}
+
+impl TcgContext {
     pub fn new() -> Self {
         TcgContext {
             ops: Vec::new(),
@@ -23,12 +33,14 @@ impl TcgContext {
         crate::tcg::op::TcgArg::Const(val)
     }
 
+    #[expect(dead_code)]
     pub fn new_label(&mut self) -> crate::tcg::op::TcgArg {
         let l = self.next_label;
         self.next_label += 1;
         crate::tcg::op::TcgArg::Label(l)
     }
 
+    #[expect(dead_code)]
     pub fn gen_mov_i64(&mut self, dst: crate::tcg::op::TcgArg, src: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(dst);
@@ -159,6 +171,7 @@ impl TcgContext {
         });
     }
 
+    #[expect(dead_code)]
     pub fn gen_set_label(&mut self, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(label);
@@ -168,6 +181,7 @@ impl TcgContext {
         });
     }
 
+    #[expect(dead_code)]
     pub fn gen_br(&mut self, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(label);
@@ -177,6 +191,7 @@ impl TcgContext {
         });
     }
 
+    #[expect(dead_code)]
     pub fn gen_brcond_i64(&mut self, s1: crate::tcg::op::TcgArg, s2: crate::tcg::op::TcgArg, cond: u32, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(s1);
@@ -189,6 +204,7 @@ impl TcgContext {
         });
     }
 
+    #[expect(dead_code)]
     pub fn gen_exit_tb(&mut self) {
         let args = smallvec::SmallVec::new();
         self.ops.push(crate::tcg::op::TcgOp {
@@ -197,12 +213,33 @@ impl TcgContext {
         });
     }
 
+    #[expect(dead_code)]
     pub fn gen_call(&mut self, helper: u64, num_args: u32) {
         let mut args = smallvec::SmallVec::new();
         args.push(crate::tcg::op::TcgArg::Const(helper));
         args.push(crate::tcg::op::TcgArg::Const(num_args as u64));
         self.ops.push(crate::tcg::op::TcgOp {
             opc: crate::tcg::op::TcgOpcode::Call,
+            args,
+        });
+    }
+
+    pub fn gen_get_gpr_i64(&mut self, dst: crate::tcg::op::TcgArg, reg: u8) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(crate::tcg::op::TcgArg::Const(reg as u64));
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::GetGprI64,
+            args,
+        });
+    }
+
+    pub fn gen_set_gpr_i64(&mut self, reg: u8, src: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(crate::tcg::op::TcgArg::Const(reg as u64));
+        args.push(src);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::SetGprI64,
             args,
         });
     }

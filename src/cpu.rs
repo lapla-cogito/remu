@@ -1,4 +1,5 @@
 #[derive(Default)]
+#[expect(dead_code)]
 pub struct Cpu {
     pub gpr: [u64; 32],
     pub pc: u64,
@@ -8,9 +9,10 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new(entry: u64) -> Self {
-        let mut c = <Self as std::default::Default>::default();
-        c.pc = entry;
-        c
+        crate::cpu::Cpu {
+            pc: entry,
+            ..<Self as std::default::Default>::default()
+        }
     }
 
     pub fn read_gpr(&self, reg: u8) -> u64 {
@@ -23,10 +25,12 @@ impl Cpu {
         }
     }
 
+    #[expect(dead_code)]
     pub fn read_fpr(&self, reg: u8) -> u64 {
         self.fpr[reg as usize]
     }
 
+    #[expect(dead_code)]
     pub fn write_fpr(&mut self, reg: u8, val: u64) {
         self.fpr[reg as usize] = val;
     }

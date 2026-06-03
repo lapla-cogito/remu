@@ -27,12 +27,18 @@ fn main() -> anyhow::Result<()> {
     if args.trace {
         println!("trace: entry {:#x}", cpu.pc);
     }
-    if args.mode != "interp" {
-        anyhow::bail!("only interp mode supported");
-    }
     let mut steps: u64 = 0;
     loop {
-        crate::interp::step(&mut cpu, &mut mem)?;
+        if args.mode == "interp" {
+            crate::interp::step(&mut cpu, &mut mem)?;
+        } else if args.mode == "tcg-interp" {
+            let (ctx, end_pc) = crate::tcg::frontend::translate_block(cpu.pc, &mem, 64);
+            crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
+            cpu.pc = end_pc;
+            crate::interp::step(&mut cpu, &mut mem)?;
+        } else {
+            anyhow::bail!("only interp and tcg-interp modes supported");
+        }
         steps += 1;
         if steps > 10_000_000 {
             anyhow::bail!("step limit");

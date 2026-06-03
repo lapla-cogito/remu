@@ -1,4 +1,6 @@
+#[derive(Clone, Copy)]
 pub enum TcgOpcode {
+    #[expect(dead_code)]
     MovI64,
     AddI64,
     SubI64,
@@ -9,18 +11,27 @@ pub enum TcgOpcode {
     ShrI64,
     SarI64,
     SetCondI64,
+    GetGprI64,
+    SetGprI64,
     QemuLdI64,
     QemuStI64,
+    #[expect(dead_code)]
     SetLabel,
+    #[expect(dead_code)]
     Br,
+    #[expect(dead_code)]
     BrCondI64,
+    #[expect(dead_code)]
     ExitTb,
+    #[expect(dead_code)]
     Call,
 }
 
+#[derive(Clone, Copy)]
 pub enum TcgArg {
     Temp(u32),
     Const(u64),
+    #[expect(dead_code)]
     Label(u32),
 }
 

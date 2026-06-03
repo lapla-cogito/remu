@@ -68,11 +68,11 @@ pub fn decode(raw: u32) -> Instr {
                 0 => Instr::Addi { rd, rs1, imm },
                 1 => {
                     let shamt = (raw >> 20) & 0x3f;
-                    Instr::Slli { rd, rs1, shamt: shamt as u32 }
+                    Instr::Slli { rd, rs1, shamt }
                 }
                 5 => {
                     let shamt = (raw >> 20) & 0x3f;
-                    if funct7 == 0 { Instr::Srli { rd, rs1, shamt: shamt as u32 } } else { Instr::Srai { rd, rs1, shamt: shamt as u32 } }
+                    if funct7 == 0 { Instr::Srli { rd, rs1, shamt } } else { Instr::Srai { rd, rs1, shamt } }
                 }
                 _ => Instr::Unknown(raw),
             }
