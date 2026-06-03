@@ -33,7 +33,6 @@ impl TcgContext {
         crate::tcg::op::TcgArg::Const(val)
     }
 
-    #[expect(dead_code)]
     pub fn new_label(&mut self) -> crate::tcg::op::TcgArg {
         let l = self.next_label;
         self.next_label += 1;
@@ -171,7 +170,15 @@ impl TcgContext {
         });
     }
 
-    #[expect(dead_code)]
+    pub fn gen_set_next_pc(&mut self, target: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(target);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::SetNextPcI64,
+            args,
+        });
+    }
+
     pub fn gen_set_label(&mut self, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(label);
@@ -191,7 +198,6 @@ impl TcgContext {
         });
     }
 
-    #[expect(dead_code)]
     pub fn gen_brcond_i64(&mut self, s1: crate::tcg::op::TcgArg, s2: crate::tcg::op::TcgArg, cond: u32, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(s1);
@@ -204,7 +210,6 @@ impl TcgContext {
         });
     }
 
-    #[expect(dead_code)]
     pub fn gen_exit_tb(&mut self) {
         let args = smallvec::SmallVec::new();
         self.ops.push(crate::tcg::op::TcgOp {

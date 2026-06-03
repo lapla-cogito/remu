@@ -15,13 +15,11 @@ pub enum TcgOpcode {
     SetGprI64,
     QemuLdI64,
     QemuStI64,
-    #[expect(dead_code)]
+    SetNextPcI64,
     SetLabel,
     #[expect(dead_code)]
     Br,
-    #[expect(dead_code)]
     BrCondI64,
-    #[expect(dead_code)]
     ExitTb,
     Call,
 }
@@ -30,7 +28,6 @@ pub enum TcgOpcode {
 pub enum TcgArg {
     Temp(u32),
     Const(u64),
-    #[expect(dead_code)]
     Label(u32),
 }
 

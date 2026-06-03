@@ -286,7 +286,55 @@ pub fn translate_block(start_pc: u64, mem: &crate::memory::GuestMemory, max_insn
                 pc = after_pc;
                 break;
             }
-            crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. } => {
+            crate::decode::Instr::Beq { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 0, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
+                break;
+            }
+            crate::decode::Instr::Bne { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 1, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
+                break;
+            }
+            crate::decode::Instr::Blt { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 2, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
+                break;
+            }
+            crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. } => {
                 break;
             }
             crate::decode::Instr::Unknown(_) => {

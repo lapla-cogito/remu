@@ -1,6 +1,7 @@
-pub fn execute_tcg(ctx: &crate::tcg::context::TcgContext, cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) {
+pub fn execute_tcg(ctx: &crate::tcg::context::TcgContext, cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> Option<u64> {
     let num_t = ctx.num_temps() as usize;
     let mut temps: Vec<u64> = vec![0u64; num_t];
+    let mut next_pc: Option<u64> = None;
     // build label to op index map
     let mut label_pos: Vec<Option<usize>> = vec![None; (ctx.num_labels() as usize).max(1)];
     for (i, op) in ctx.ops.iter().enumerate() {
@@ -105,6 +106,13 @@ pub fn execute_tcg(ctx: &crate::tcg::context::TcgContext, cpu: &mut crate::cpu::
                     let _ = mem.write_u64(addr, temps[*s as usize]);
                 }
             }
+            crate::tcg::op::TcgOpcode::SetNextPcI64 => {
+                if let crate::tcg::op::TcgArg::Temp(t) = &op.args[0] {
+                    next_pc = Some(temps[*t as usize]);
+                } else if let crate::tcg::op::TcgArg::Const(c) = &op.args[0] {
+                    next_pc = Some(*c);
+                }
+            }
             crate::tcg::op::TcgOpcode::SetLabel => {
                 // marker, nothing
             }
@@ -152,4 +160,5 @@ pub fn execute_tcg(ctx: &crate::tcg::context::TcgContext, cpu: &mut crate::cpu::
         }
         i += 1;
     }
+    next_pc
 }

@@ -91,7 +91,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let off_s2 = temp_base - (s2 as i32) * 8;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; sub rax, [rbp + off_s2]
                         ; mov [rbp + off_d], rax
@@ -103,7 +103,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let ci = c as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; mov rcx, QWORD ci
                         ; and rax, rcx
@@ -113,7 +113,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let c1i = c1 as i64;
                     let c2i = c2 as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, QWORD c1i
                         ; mov rcx, QWORD c2i
                         ; and rax, rcx
@@ -123,7 +123,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let off_s2 = temp_base - (s2 as i32) * 8;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; and rax, [rbp + off_s2]
                         ; mov [rbp + off_d], rax
@@ -135,7 +135,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let ci = c as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; mov rcx, QWORD ci
                         ; or rax, rcx
@@ -145,7 +145,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let c1i = c1 as i64;
                     let c2i = c2 as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, QWORD c1i
                         ; mov rcx, QWORD c2i
                         ; or rax, rcx
@@ -155,7 +155,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let off_s2 = temp_base - (s2 as i32) * 8;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; or rax, [rbp + off_s2]
                         ; mov [rbp + off_d], rax
@@ -167,7 +167,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let ci = c as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; mov rcx, QWORD ci
                         ; xor rax, rcx
@@ -177,7 +177,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let c1i = c1 as i64;
                     let c2i = c2 as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, QWORD c1i
                         ; mov rcx, QWORD c2i
                         ; xor rax, rcx
@@ -187,7 +187,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     let off_d = temp_base - (d as i32) * 8;
                     let off_s1 = temp_base - (s1 as i32) * 8;
                     let off_s2 = temp_base - (s2 as i32) * 8;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s1]
                         ; xor rax, [rbp + off_s2]
                         ; mov [rbp + off_d], rax
@@ -199,7 +199,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
                     && h == 0
                 {
                     let helper = helper_syscall as *const () as i64;
-                    ::dynasmrt::dynasm!(asm
+                    dynasmrt::dynasm!(asm
                         ; mov rdi, [rbp-8]
                         ; mov rsi, [rbp-16]
                         ; mov rax, QWORD helper
@@ -210,7 +210,7 @@ pub fn compile(ctx: &crate::tcg::context::TcgContext) -> anyhow::Result<dynasmrt
             _ => {}
         }
     }
-    ::dynasmrt::dynasm!(asm
+    dynasmrt::dynasm!(asm
         ; mov rsp, rbp
         ; pop rbp
         ; ret
