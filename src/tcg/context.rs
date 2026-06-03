@@ -213,7 +213,6 @@ impl TcgContext {
         });
     }
 
-    #[expect(dead_code)]
     pub fn gen_call(&mut self, helper: u64, num_args: u32) {
         let mut args = smallvec::SmallVec::new();
         args.push(crate::tcg::op::TcgArg::Const(helper));

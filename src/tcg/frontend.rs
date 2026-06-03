@@ -281,7 +281,12 @@ pub fn translate_block(start_pc: u64, mem: &crate::memory::GuestMemory, max_insn
                 }
                 break;
             }
-            crate::decode::Instr::Ecall | crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. } => {
+            crate::decode::Instr::Ecall => {
+                ctx.gen_call(0, 0);
+                pc = after_pc;
+                break;
+            }
+            crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. } => {
                 break;
             }
             crate::decode::Instr::Unknown(_) => {

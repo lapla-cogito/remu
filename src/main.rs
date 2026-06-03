@@ -32,10 +32,16 @@ fn main() -> anyhow::Result<()> {
         if args.mode == "interp" {
             crate::interp::step(&mut cpu, &mut mem)?;
         } else if args.mode == "tcg-interp" {
-            let (ctx, end_pc) = crate::tcg::frontend::translate_block(cpu.pc, &mem, 64);
+            let block_start = cpu.pc;
+            let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
             crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
             cpu.pc = end_pc;
-            crate::interp::step(&mut cpu, &mut mem)?;
+            // If ended at unhandled control (branch), execute it with interp to update pc
+            if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
+                && matches!(last, crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. })
+            {
+                crate::interp::step(&mut cpu, &mut mem)?;
+            }
         } else {
             anyhow::bail!("only interp and tcg-interp modes supported");
         }

@@ -23,7 +23,6 @@ pub enum TcgOpcode {
     BrCondI64,
     #[expect(dead_code)]
     ExitTb,
-    #[expect(dead_code)]
     Call,
 }
 
