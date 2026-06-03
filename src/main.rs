@@ -3,6 +3,7 @@ mod memory;
 mod elf_loader;
 mod syscall;
 mod decode;
+mod interp;
 
 #[derive(clap::Parser)]
 #[command(version, about = "remu - RISC-V emulator with TCG")]
