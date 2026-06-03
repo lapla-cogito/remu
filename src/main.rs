@@ -42,8 +42,22 @@ fn main() -> anyhow::Result<()> {
             {
                 crate::interp::step(&mut cpu, &mut mem)?;
             }
+        } else if args.mode == "jit" {
+            let block_start = cpu.pc;
+            let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
+            let buf = crate::tcg::jit::compile(&ctx)?;
+            let f: extern "C" fn(*mut u64, *mut u8) = unsafe { std::mem::transmute(buf.as_ptr()) };
+            let gpr = cpu.gpr.as_mut_ptr();
+            let mem_base = mem.mem_ptr();
+            f(gpr, mem_base);
+            cpu.pc = end_pc;
+            if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
+                && matches!(last, crate::decode::Instr::Beq { .. } | crate::decode::Instr::Bne { .. } | crate::decode::Instr::Blt { .. } | crate::decode::Instr::Bge { .. } | crate::decode::Instr::Bltu { .. } | crate::decode::Instr::Bgeu { .. })
+            {
+                crate::interp::step(&mut cpu, &mut mem)?;
+            }
         } else {
-            anyhow::bail!("only interp and tcg-interp modes supported");
+            anyhow::bail!("only interp, tcg-interp and jit modes supported");
         }
         steps += 1;
         if steps > 10_000_000 {
@@ -64,7 +78,10 @@ mod tests {
         let remu = "./target/debug/remu";
         let out1 = Command::new(remu).args(["--mode", "interp", hello]).output().expect("interp");
         let out2 = Command::new(remu).args(["--mode", "tcg-interp", hello]).output().expect("tcg");
+        let out3 = Command::new(remu).args(["--mode", "jit", hello]).output().expect("jit");
         assert_eq!(out1.status, out2.status);
         assert_eq!(out1.stdout, out2.stdout);
+        assert_eq!(out1.status, out3.status);
+        assert_eq!(out1.stdout, out3.stdout);
     }
 }

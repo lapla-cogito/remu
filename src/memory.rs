@@ -58,4 +58,8 @@ impl GuestMemory {
         self.write_u32(addr, val as u32)?;
         self.write_u32(addr.wrapping_add(4), (val >> 32) as u32)
     }
+
+    pub fn mem_ptr(&mut self) -> *mut u8 {
+        self.data.as_mut_ptr()
+    }
 }
