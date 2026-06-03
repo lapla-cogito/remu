@@ -11,6 +11,7 @@ pub fn compile(
         ; sub rsp, 256
         ; mov [rbp-8], rdi
         ; mov [rbp-16], rsi
+        ; mov [rbp-24], rdx
     );
     for op in &ctx.ops {
         match op.opc {
@@ -36,6 +37,32 @@ pub fn compile(
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off]
                         ; mov rdx, [rbp-8]
+                        ; mov [rdx + reg_off], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::GetFprI64 => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Const(r)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off = temp_base - (d as i32) * 8;
+                    let reg_off = (r as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp-16]
+                        ; mov rax, [rax + reg_off]
+                        ; mov [rbp + off], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::SetFprI64 => {
+                if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off = temp_base - (s as i32) * 8;
+                    let reg_off = (r as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off]
+                        ; mov rdx, [rbp-16]
                         ; mov [rdx + reg_off], rax
                     );
                 }
@@ -283,7 +310,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; movsx rax, BYTE [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -297,7 +324,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; movzx rax, BYTE [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -311,7 +338,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; movsx rax, WORD [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -325,7 +352,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; movzx rax, WORD [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -339,7 +366,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; movsxd rax, DWORD [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -353,7 +380,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov eax, DWORD [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -367,7 +394,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_a]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov rax, [rdx + rax]
                         ; mov [rbp + off_d], rax
                     );
@@ -381,7 +408,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
                         ; mov BYTE [rdx + rcx], al
                     );
@@ -395,7 +422,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
                         ; mov WORD [rdx + rcx], ax
                     );
@@ -409,7 +436,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
                         ; mov DWORD [rdx + rcx], eax
                     );
@@ -423,7 +450,7 @@ pub fn compile(
                     let off_a = temp_base - (a as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off_s]
-                        ; mov rdx, [rbp - 16]
+                        ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
                         ; mov [rdx + rcx], rax
                     );
@@ -677,9 +704,196 @@ pub fn compile(
                     let helper = helper_syscall as *const () as i64;
                     dynasmrt::dynasm!(asm
                         ; mov rdi, [rbp-8]
-                        ; mov rsi, [rbp-16]
+                        ; mov rsi, [rbp-24]
                         ; mov rax, QWORD helper
                         ; call rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FAddS => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s1]
+                        ; addss xmm0, [rbp + off_s2]
+                        ; movss [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FAddD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movsd xmm0, [rbp + off_s1]
+                        ; addsd xmm0, [rbp + off_s2]
+                        ; movsd [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FSubS => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s1]
+                        ; subss xmm0, [rbp + off_s2]
+                        ; movss [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FSubD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movsd xmm0, [rbp + off_s1]
+                        ; subsd xmm0, [rbp + off_s2]
+                        ; movsd [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FMulS => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s1]
+                        ; mulss xmm0, [rbp + off_s2]
+                        ; movss [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FMulD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movsd xmm0, [rbp + off_s1]
+                        ; mulsd xmm0, [rbp + off_s2]
+                        ; movsd [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FDivS => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s1]
+                        ; divss xmm0, [rbp + off_s2]
+                        ; movss [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FDivD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s1 = temp_base - (s1 as i32) * 8;
+                    let off_s2 = temp_base - (s2 as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movsd xmm0, [rbp + off_s1]
+                        ; divsd xmm0, [rbp + off_s2]
+                        ; movsd [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FSqrtS => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s = temp_base - (s as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s]
+                        ; sqrtss xmm0, xmm0
+                        ; movss [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FSqrtD => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s = temp_base - (s as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movsd xmm0, [rbp + off_s]
+                        ; sqrtsd xmm0, xmm0
+                        ; movsd [rbp + off_d], xmm0
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FCvtWS => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s = temp_base - (s as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; movss xmm0, [rbp + off_s]
+                        ; cvttss2si rax, xmm0
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::FCvtSW => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s = temp_base - (s as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; cvtsi2ss xmm0, [rbp + off_s]
+                        ; movss [rbp + off_d], xmm0
                     );
                 }
             }

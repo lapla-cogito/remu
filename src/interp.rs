@@ -1,4 +1,4 @@
-#[expect(clippy::manual_checked_ops)]
+#[expect(clippy::manual_checked_ops, clippy::if_same_then_else)]
 pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> anyhow::Result<()> {
     let (ilen, instr) = crate::decode::fetch_decode(mem, cpu.pc)?;
     let npc = cpu.pc.wrapping_add(ilen as u64);
@@ -386,6 +386,611 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         crate::decode::Instr::Sd { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
             mem.write_u64(a, cpu.read_gpr(rs2))?;
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Flw { rd, rs1, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let v = mem.read_u32(a)?;
+            cpu.write_fpr_s(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Fld { rd, rs1, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let v = mem.read_u64(a)?;
+            cpu.write_fpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Fsw { rs1, rs2, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let val = cpu.read_fpr_s(rs2);
+            mem.write_u32(a, val)?;
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Fsd { rs1, rs2, imm } => {
+            let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            let val = cpu.read_fpr(rs2);
+            mem.write_u64(a, val)?;
+            cpu.pc = npc;
+        }
+        // FP loads/stores already handled above; core FP arith/cvt/mv/cmp below
+        crate::decode::Instr::FAddS {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = a + b;
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FAddD {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = a + b;
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FSubS {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = a - b;
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FSubD {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = a - b;
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMulS {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = a * b;
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMulD {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = a * b;
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FDivS {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = a / b;
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FDivD {
+            rd,
+            rs1,
+            rs2,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = a / b;
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FSqrtS { rd, rs1, _rm: _ } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let res = a.sqrt();
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FSqrtD { rd, rs1, _rm: _ } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let res = a.sqrt();
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMaddS {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let c = f32::from_bits(cpu.read_fpr_s(rs3));
+            let res = a.mul_add(b, c);
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMaddD {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let c = f64::from_bits(cpu.read_fpr(rs3));
+            let res = a.mul_add(b, c);
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMsubS {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let c = f32::from_bits(cpu.read_fpr_s(rs3));
+            let res = a.mul_add(b, -c);
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FMsubD {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let c = f64::from_bits(cpu.read_fpr(rs3));
+            let res = a.mul_add(b, -c);
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FNmaddS {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let c = f32::from_bits(cpu.read_fpr_s(rs3));
+            let res = (-a).mul_add(b, -c);
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FNmaddD {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let c = f64::from_bits(cpu.read_fpr(rs3));
+            let res = (-a).mul_add(b, -c);
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FNmsubS {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let c = f32::from_bits(cpu.read_fpr_s(rs3));
+            let res = (-a).mul_add(b, c);
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FNmsubD {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            _rm: _,
+        } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let c = f64::from_bits(cpu.read_fpr(rs3));
+            let res = (-a).mul_add(b, c);
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtWS { rd, rs1, _rm: _ } => {
+            let f = f32::from_bits(cpu.read_fpr_s(rs1));
+            let i = f as i32 as i64;
+            cpu.write_gpr(rd, i as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtWUS { rd, rs1, _rm: _ } => {
+            let f = f32::from_bits(cpu.read_fpr_s(rs1));
+            let u = if f <= 0.0 {
+                0u32
+            } else if f >= u32::MAX as f32 {
+                u32::MAX
+            } else {
+                f as u32
+            };
+            cpu.write_gpr(rd, u as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtLS { rd, rs1, _rm: _ } => {
+            let f = f32::from_bits(cpu.read_fpr_s(rs1));
+            let i = f as i64;
+            cpu.write_gpr(rd, i as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtLUS { rd, rs1, _rm: _ } => {
+            let f = f32::from_bits(cpu.read_fpr_s(rs1));
+            let u = if f <= 0.0 {
+                0u64
+            } else if f >= u64::MAX as f32 {
+                u64::MAX
+            } else {
+                f as u64
+            };
+            cpu.write_gpr(rd, u);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtSW { rd, rs1, _rm: _ } => {
+            let i = cpu.read_gpr(rs1) as i32 as f32;
+            cpu.write_fpr_s(rd, i.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtSWU { rd, rs1, _rm: _ } => {
+            let u = cpu.read_gpr(rs1) as u32 as f32;
+            cpu.write_fpr_s(rd, u.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtSL { rd, rs1, _rm: _ } => {
+            let i = cpu.read_gpr(rs1) as i64 as f32;
+            cpu.write_fpr_s(rd, i.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtSLU { rd, rs1, _rm: _ } => {
+            let u = cpu.read_gpr(rs1) as f32;
+            cpu.write_fpr_s(rd, u.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtWD { rd, rs1, _rm: _ } => {
+            let f = f64::from_bits(cpu.read_fpr(rs1));
+            let i = f as i32 as i64;
+            cpu.write_gpr(rd, i as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtWUD { rd, rs1, _rm: _ } => {
+            let f = f64::from_bits(cpu.read_fpr(rs1));
+            let u = if f <= 0.0 {
+                0u32
+            } else if f >= u32::MAX as f64 {
+                u32::MAX
+            } else {
+                f as u32
+            };
+            cpu.write_gpr(rd, u as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtLD { rd, rs1, _rm: _ } => {
+            let f = f64::from_bits(cpu.read_fpr(rs1));
+            let i = f as i64;
+            cpu.write_gpr(rd, i as u64);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtLUD { rd, rs1, _rm: _ } => {
+            let f = f64::from_bits(cpu.read_fpr(rs1));
+            let u = if f <= 0.0 {
+                0u64
+            } else if f >= u64::MAX as f64 {
+                u64::MAX
+            } else {
+                f as u64
+            };
+            cpu.write_gpr(rd, u);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtDW { rd, rs1, _rm: _ } => {
+            let i = cpu.read_gpr(rs1) as i32 as f64;
+            cpu.write_fpr(rd, i.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtDWU { rd, rs1, _rm: _ } => {
+            let u = cpu.read_gpr(rs1) as u32 as f64;
+            cpu.write_fpr(rd, u.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtDL { rd, rs1, _rm: _ } => {
+            let i = cpu.read_gpr(rs1) as i64 as f64;
+            cpu.write_fpr(rd, i.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtDLU { rd, rs1, _rm: _ } => {
+            let u = cpu.read_gpr(rs1) as f64;
+            cpu.write_fpr(rd, u.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtSD { rd, rs1, _rm: _ } => {
+            let d = f64::from_bits(cpu.read_fpr(rs1));
+            let s = d as f32;
+            cpu.write_fpr_s(rd, s.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FcvtDS { rd, rs1, _rm: _ } => {
+            let s = f32::from_bits(cpu.read_fpr_s(rs1));
+            let d = s as f64;
+            cpu.write_fpr(rd, d.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmvXW { rd, rs1 } => {
+            let v = cpu.read_fpr_s(rs1) as u64;
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmvWX { rd, rs1 } => {
+            let v = cpu.read_gpr(rs1) as u32;
+            cpu.write_fpr_s(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmvXD { rd, rs1 } => {
+            cpu.write_gpr(rd, cpu.read_fpr(rs1));
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmvDX { rd, rs1 } => {
+            cpu.write_fpr(rd, cpu.read_gpr(rs1));
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjS { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr_s(rs1);
+            let b = cpu.read_fpr_s(rs2);
+            a = (a & 0x7fffffff) | (b & 0x80000000);
+            cpu.write_fpr_s(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjD { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr(rs1);
+            let b = cpu.read_fpr(rs2);
+            a = (a & 0x7fff_ffff_ffff_ffff) | (b & 0x8000_0000_0000_0000);
+            cpu.write_fpr(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjnS { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr_s(rs1);
+            let b = cpu.read_fpr_s(rs2);
+            a = (a & 0x7fffffff) | ((!b) & 0x80000000);
+            cpu.write_fpr_s(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjnD { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr(rs1);
+            let b = cpu.read_fpr(rs2);
+            a = (a & 0x7fff_ffff_ffff_ffff) | ((!b) & 0x8000_0000_0000_0000);
+            cpu.write_fpr(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjxS { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr_s(rs1);
+            let b = cpu.read_fpr_s(rs2);
+            a = (a & 0x7fffffff) | ((a ^ b) & 0x80000000);
+            cpu.write_fpr_s(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FsgnjxD { rd, rs1, rs2 } => {
+            let mut a = cpu.read_fpr(rs1);
+            let b = cpu.read_fpr(rs2);
+            a = (a & 0x7fff_ffff_ffff_ffff) | ((a ^ b) & 0x8000_0000_0000_0000);
+            cpu.write_fpr(rd, a);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FminS { rd, rs1, rs2 } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = if a.is_nan() {
+                b
+            } else if b.is_nan() {
+                a
+            } else if a < b {
+                a
+            } else {
+                b
+            };
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FminD { rd, rs1, rs2 } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = if a.is_nan() {
+                b
+            } else if b.is_nan() {
+                a
+            } else if a < b {
+                a
+            } else {
+                b
+            };
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmaxS { rd, rs1, rs2 } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = if a.is_nan() {
+                b
+            } else if b.is_nan() {
+                a
+            } else if a > b {
+                a
+            } else {
+                b
+            };
+            cpu.write_fpr_s(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FmaxD { rd, rs1, rs2 } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = if a.is_nan() {
+                b
+            } else if b.is_nan() {
+                a
+            } else if a > b {
+                a
+            } else {
+                b
+            };
+            cpu.write_fpr(rd, res.to_bits());
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FeqS { rd, rs1, rs2 } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = if a == b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FeqD { rd, rs1, rs2 } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = if a == b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FltS { rd, rs1, rs2 } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = if a < b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FltD { rd, rs1, rs2 } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = if a < b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FleS { rd, rs1, rs2 } => {
+            let a = f32::from_bits(cpu.read_fpr_s(rs1));
+            let b = f32::from_bits(cpu.read_fpr_s(rs2));
+            let res = if a <= b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FleD { rd, rs1, rs2 } => {
+            let a = f64::from_bits(cpu.read_fpr(rs1));
+            let b = f64::from_bits(cpu.read_fpr(rs2));
+            let res = if a <= b { 1 } else { 0 };
+            cpu.write_gpr(rd, res);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FclassS { rd, rs1 } => {
+            let bits = cpu.read_fpr_s(rs1);
+            let is_neg = (bits >> 31) != 0;
+            let exp = (bits >> 23) & 0xff;
+            let mant = bits & 0x007fffff;
+            let is_sub = exp == 0 && mant != 0;
+            let is_norm = exp != 0 && exp != 0xff;
+            let is_inf = exp == 0xff && mant == 0;
+            let is_nan = exp == 0xff && mant != 0;
+            let is_zero = exp == 0 && mant == 0;
+            let mut cls: u64 = 0;
+            if is_neg && is_inf {
+                cls = 1;
+            } else if is_neg && is_norm {
+                cls = 1 << 1;
+            } else if is_neg && is_sub {
+                cls = 1 << 2;
+            } else if is_neg && is_zero {
+                cls = 1 << 3;
+            } else if !is_neg && is_zero {
+                cls = 1 << 4;
+            } else if !is_neg && is_sub {
+                cls = 1 << 5;
+            } else if !is_neg && is_norm {
+                cls = 1 << 6;
+            } else if !is_neg && is_inf {
+                cls = 1 << 7;
+            } else if is_nan {
+                cls = if (mant & 0x00400000) != 0 {
+                    1 << 9
+                } else {
+                    1 << 8
+                };
+            }
+            cpu.write_gpr(rd, cls);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::FclassD { rd, rs1 } => {
+            let bits = cpu.read_fpr(rs1);
+            let is_neg = (bits >> 63) != 0;
+            let exp = (bits >> 52) & 0x7ff;
+            let mant = bits & 0x000f_ffff_ffff_ffff;
+            let is_sub = exp == 0 && mant != 0;
+            let is_norm = exp != 0 && exp != 0x7ff;
+            let is_inf = exp == 0x7ff && mant == 0;
+            let is_nan = exp == 0x7ff && mant != 0;
+            let is_zero = exp == 0 && mant == 0;
+            let mut cls: u64 = 0;
+            if is_neg && is_inf {
+                cls = 1;
+            } else if is_neg && is_norm {
+                cls = 1 << 1;
+            } else if is_neg && is_sub {
+                cls = 1 << 2;
+            } else if is_neg && is_zero {
+                cls = 1 << 3;
+            } else if !is_neg && is_zero {
+                cls = 1 << 4;
+            } else if !is_neg && is_sub {
+                cls = 1 << 5;
+            } else if !is_neg && is_norm {
+                cls = 1 << 6;
+            } else if !is_neg && is_inf {
+                cls = 1 << 7;
+            } else if is_nan {
+                cls = if (mant & (1u64 << 51)) != 0 {
+                    1 << 9
+                } else {
+                    1 << 8
+                };
+            }
+            cpu.write_gpr(rd, cls);
             cpu.pc = npc;
         }
         crate::decode::Instr::Ecall => {

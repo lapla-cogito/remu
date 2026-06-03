@@ -25,13 +25,34 @@ impl Cpu {
         }
     }
 
-    #[expect(dead_code)]
     pub fn read_fpr(&self, reg: u8) -> u64 {
         self.fpr[reg as usize]
     }
 
-    #[expect(dead_code)]
     pub fn write_fpr(&mut self, reg: u8, val: u64) {
         self.fpr[reg as usize] = val;
+    }
+
+    pub fn read_fpr_s(&self, reg: u8) -> u32 {
+        self.fpr[reg as usize] as u32
+    }
+
+    pub fn write_fpr_s(&mut self, reg: u8, val: u32) {
+        self.fpr[reg as usize] = (val as u64) | 0xffffffff00000000u64;
+    }
+
+    #[expect(dead_code)]
+    pub fn read_fcsr(&self) -> u32 {
+        self.fcsr
+    }
+
+    #[expect(dead_code)]
+    pub fn write_fcsr(&mut self, val: u32) {
+        self.fcsr = val & 0xff;
+    }
+
+    #[expect(dead_code)]
+    pub fn frm(&self) -> u8 {
+        ((self.fcsr >> 5) & 7) as u8
     }
 }

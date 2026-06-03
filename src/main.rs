@@ -60,10 +60,12 @@ fn main() -> anyhow::Result<()> {
             let block_start = cpu.pc;
             let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
             let buf = crate::tcg::jit::compile(&ctx)?;
-            let f: extern "C" fn(*mut u64, *mut u8) = unsafe { std::mem::transmute(buf.as_ptr()) };
+            let f: extern "C" fn(*mut u64, *mut u64, *mut u8) =
+                unsafe { std::mem::transmute(buf.as_ptr()) };
             let gpr = cpu.gpr.as_mut_ptr();
+            let fpr = cpu.fpr.as_mut_ptr();
             let mem_base = mem.mem_ptr();
-            f(gpr, mem_base);
+            f(gpr, fpr, mem_base);
             cpu.pc = end_pc;
             if cpu.pc == block_start {
                 return Ok(());
@@ -190,6 +192,26 @@ mod tests {
                 .expect(mode);
             assert_eq!(out.status.code(), Some(42), "{}", mode);
             assert_eq!(out.stdout, b"OK\n", "{}", mode);
+        }
+    }
+
+    #[test]
+    fn fp_matches_all_modes() {
+        let asm = "tests/bare_fp.S";
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
+            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_fp.o"])
+            .status();
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
+            .args(["-o", "/tmp/bare_fp", "/tmp/bare_fp.o"])
+            .status();
+        let elf = "/tmp/bare_fp";
+        let remu = "./target/debug/remu";
+        for &mode in &["interp", "tcg-interp", "jit"] {
+            let out = ::std::process::Command::new(remu)
+                .args(["--mode", mode, elf])
+                .output()
+                .expect(mode);
+            assert_eq!(out.status.code(), Some(42), "{}", mode);
         }
     }
 }
