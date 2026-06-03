@@ -190,6 +190,19 @@ pub fn decode_compressed(raw: u16) -> Instr {
                 Instr::Unknown(raw as u32)
             }
         }
+        (2, 4) => {
+            let rs1 = ((raw >> 7) & 0x1f) as u8;
+            let bit12 = (raw >> 12) & 1;
+            if bit12 == 0 && rs1 != 0 {
+                // c.jr rs1
+                Instr::Jalr { rd: 0, rs1, imm: 0 }
+            } else if bit12 == 1 && rs1 != 0 {
+                // c.jalr rs1
+                Instr::Jalr { rd: 1, rs1, imm: 0 }
+            } else {
+                Instr::Unknown(raw as u32)
+            }
+        }
         _ => Instr::Unknown(raw as u32),
     }
 }
