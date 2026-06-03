@@ -37,8 +37,8 @@ fn main() -> anyhow::Result<()> {
         } else if args.mode == "tcg-interp" {
             let block_start = cpu.pc;
             let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
-            crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
-            cpu.pc = end_pc;
+            let next_pc = crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
+            cpu.pc = next_pc.unwrap_or(end_pc);
             if cpu.pc == block_start {
                 return Ok(());
             }
@@ -169,6 +169,27 @@ mod tests {
                 .expect(mode);
             assert_eq!(out.status.code(), Some(42), "{}", mode);
             assert_eq!(out.stdout, b"MEMTEST\n", "{}", mode);
+        }
+    }
+
+    #[test]
+    fn arith_and_branches_match_all_modes() {
+        let asm = "tests/bare_arith.S";
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
+            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_arith.o"])
+            .status();
+        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
+            .args(["-o", "/tmp/bare_arith", "/tmp/bare_arith.o"])
+            .status();
+        let elf = "/tmp/bare_arith";
+        let remu = "./target/debug/remu";
+        for &mode in &["interp", "tcg-interp", "jit"] {
+            let out = ::std::process::Command::new(remu)
+                .args(["--mode", mode, elf])
+                .output()
+                .expect(mode);
+            assert_eq!(out.status.code(), Some(42), "{}", mode);
+            assert_eq!(out.stdout, b"OK\n", "{}", mode);
         }
     }
 }

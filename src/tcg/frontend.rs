@@ -85,6 +85,46 @@ pub fn translate_block(
                     ctx.gen_set_gpr_i64(rd, t3);
                 }
             }
+            crate::decode::Instr::Ori { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_or_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Xori { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_xor_i64(t3, t1, t2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Slti { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_set_cond_i64(t3, t1, t2, 2);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
+            crate::decode::Instr::Sltiu { rd, rs1, imm } => {
+                if rd != 0 {
+                    let t1 = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(t1, rs1);
+                    let t2 = ctx.new_const(imm as u64);
+                    let t3 = ctx.new_temp();
+                    ctx.gen_set_cond_i64(t3, t1, t2, 3);
+                    ctx.gen_set_gpr_i64(rd, t3);
+                }
+            }
             crate::decode::Instr::Or { rd, rs1, rs2 } => {
                 if rd != 0 {
                     let t1 = ctx.new_temp();
@@ -398,9 +438,52 @@ pub fn translate_block(
                 ctx.gen_exit_tb();
                 break;
             }
-            crate::decode::Instr::Bge { .. }
-            | crate::decode::Instr::Bltu { .. }
-            | crate::decode::Instr::Bgeu { .. } => {
+            crate::decode::Instr::Bge { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 4, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
+                break;
+            }
+            crate::decode::Instr::Bltu { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 3, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
+                break;
+            }
+            crate::decode::Instr::Bgeu { rs1, rs2, imm } => {
+                let t1 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t1, rs1);
+                let t2 = ctx.new_temp();
+                ctx.gen_get_gpr_i64(t2, rs2);
+                let l = ctx.new_label();
+                ctx.gen_brcond_i64(t1, t2, 5, l);
+                let t_fall = ctx.new_const(after_pc);
+                ctx.gen_set_next_pc(t_fall);
+                ctx.gen_exit_tb();
+                ctx.gen_set_label(l);
+                let t_taken = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(t_taken);
+                ctx.gen_exit_tb();
                 break;
             }
             crate::decode::Instr::Unknown(_) => {

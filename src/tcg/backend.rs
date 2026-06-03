@@ -166,7 +166,17 @@ pub fn execute_tcg(
                                 0
                             }
                         }
-                        3 if v1 < v2 => 1,
+                        3 => {
+                            if v1 < v2 {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                        4 if (v1 as i64) >= (v2 as i64) => 1,
+                        4 => 0,
+                        5 if v1 >= v2 => 1,
+                        5 => 0,
                         _ => 0,
                     };
                     temps[*d as usize] = res;
@@ -309,6 +319,8 @@ pub fn execute_tcg(
                         1 => v1 != v2,
                         2 => (v1 as i64) < (v2 as i64),
                         3 => v1 < v2,
+                        4 => (v1 as i64) >= (v2 as i64),
+                        5 => v1 >= v2,
                         _ => false,
                     };
                     if take

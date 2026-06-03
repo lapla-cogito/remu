@@ -7,6 +7,10 @@ pub enum Instr {
     Or { rd: u8, rs1: u8, rs2: u8 },
     Xor { rd: u8, rs1: u8, rs2: u8 },
     Andi { rd: u8, rs1: u8, imm: i64 },
+    Ori { rd: u8, rs1: u8, imm: i64 },
+    Xori { rd: u8, rs1: u8, imm: i64 },
+    Slti { rd: u8, rs1: u8, imm: i64 },
+    Sltiu { rd: u8, rs1: u8, imm: i64 },
     Sll { rd: u8, rs1: u8, rs2: u8 },
     Srl { rd: u8, rs1: u8, rs2: u8 },
     Sra { rd: u8, rs1: u8, rs2: u8 },
@@ -75,6 +79,9 @@ pub fn decode(raw: u32) -> Instr {
                     let shamt = (raw >> 20) & 0x3f;
                     Instr::Slli { rd, rs1, shamt }
                 }
+                2 => Instr::Slti { rd, rs1, imm },
+                3 => Instr::Sltiu { rd, rs1, imm },
+                4 => Instr::Xori { rd, rs1, imm },
                 5 => {
                     let shamt = (raw >> 20) & 0x3f;
                     if funct7 == 0 {
@@ -83,6 +90,8 @@ pub fn decode(raw: u32) -> Instr {
                         Instr::Srai { rd, rs1, shamt }
                     }
                 }
+                6 => Instr::Ori { rd, rs1, imm },
+                7 => Instr::Andi { rd, rs1, imm },
                 _ => Instr::Unknown(raw),
             }
         }
@@ -287,18 +296,27 @@ pub fn decode_compressed(raw: u16) -> Instr {
             }
         }
         (1, 5) => {
-            // c.j
-            let mut imm = 0u64;
-            imm |= (((raw >> 12) & 1) as u64) << 11;
-            imm |= (((raw >> 8) & 1) as u64) << 10;
-            imm |= (((raw >> 9) & 3) as u64) << 8;
-            imm |= (((raw >> 6) & 1) as u64) << 7;
-            imm |= (((raw >> 7) & 1) as u64) << 6;
-            imm |= (((raw >> 2) & 1) as u64) << 5;
-            imm |= (((raw >> 11) & 1) as u64) << 4;
-            imm |= (((raw >> 3) & 7) as u64) << 1;
-            let imm = sign_extend(imm, 12) as i64;
-            Instr::Jal { rd: 0, imm }
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            if rd != 0 {
+                // c.addiw
+                let imm5 = ((raw >> 12) & 1) as u64;
+                let imm40 = ((raw >> 2) & 0x1f) as u64;
+                let imm = sign_extend((imm5 << 5) | imm40, 6) as i64;
+                Instr::Addiw { rd, rs1: rd, imm }
+            } else {
+                // c.j
+                let mut imm = 0u64;
+                imm |= (((raw >> 12) & 1) as u64) << 11;
+                imm |= (((raw >> 8) & 1) as u64) << 10;
+                imm |= (((raw >> 9) & 3) as u64) << 8;
+                imm |= (((raw >> 6) & 1) as u64) << 7;
+                imm |= (((raw >> 7) & 1) as u64) << 6;
+                imm |= (((raw >> 2) & 1) as u64) << 5;
+                imm |= (((raw >> 11) & 1) as u64) << 4;
+                imm |= (((raw >> 3) & 7) as u64) << 1;
+                let imm = sign_extend(imm, 12) as i64;
+                Instr::Jal { rd: 0, imm }
+            }
         }
         (1, 6) => {
             // c.beqz

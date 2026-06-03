@@ -32,6 +32,34 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
+        crate::decode::Instr::Ori { rd, rs1, imm } => {
+            let v = cpu.read_gpr(rs1) | (imm as u64);
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Xori { rd, rs1, imm } => {
+            let v = cpu.read_gpr(rs1) ^ (imm as u64);
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Slti { rd, rs1, imm } => {
+            let v = if (cpu.read_gpr(rs1) as i64) < imm {
+                1
+            } else {
+                0
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::Sltiu { rd, rs1, imm } => {
+            let v = if cpu.read_gpr(rs1) < (imm as u64) {
+                1
+            } else {
+                0
+            };
+            cpu.write_gpr(rd, v);
+            cpu.pc = npc;
+        }
         crate::decode::Instr::Or { rd, rs1, rs2 } => {
             let v = cpu.read_gpr(rs1) | cpu.read_gpr(rs2);
             cpu.write_gpr(rd, v);
