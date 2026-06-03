@@ -2,7 +2,7 @@
 	.global _start
 _start:
 	c.li a0, 1
-	c.li a2, 13
+	c.li a2, 11
 	c.mv a1, a2
 	c.add a2, a0
 	c.sub a2, a0

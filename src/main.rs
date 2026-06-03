@@ -95,123 +95,75 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    fn compile_assemble(asm_path: &str, out_elf: &str) -> String {
+        let obj = std::format!("{}.o", out_elf);
+        let s = std::process::Command::new("riscv64-linux-gnu-as")
+            .args(["-march=rv64gc", asm_path, "-o", &obj])
+            .status()
+            .expect("as");
+        if !s.success() {
+            panic!("as failed for {}", asm_path);
+        }
+        let s = std::process::Command::new("riscv64-linux-gnu-ld")
+            .args(["-o", out_elf, &obj])
+            .status()
+            .expect("ld");
+        if !s.success() {
+            panic!("ld failed for {}", out_elf);
+        }
+        out_elf.to_string()
+    }
+
+    fn run_capture(elf: &str, mode: &str) -> std::process::Output {
+        if mode == "qemu" {
+            std::process::Command::new("qemu-riscv64")
+                .arg(elf)
+                .output()
+                .expect("qemu")
+        } else {
+            std::process::Command::new("./target/debug/remu")
+                .args(["--mode", mode, elf])
+                .output()
+                .expect(mode)
+        }
+    }
+
+    fn assert_all_modes_match(asm: &str, exp_code: i32, exp_stdout: &[u8]) {
+        let stem = asm.rsplit('/').next().unwrap_or(asm).trim_end_matches(".S");
+        let elf = compile_assemble(asm, &std::format!("/tmp/{}", stem));
+        let modes = ["interp", "tcg-interp", "jit", "qemu"];
+        let reference = run_capture(&elf, modes[0]);
+        for &mode in &modes[1..] {
+            let out = run_capture(&elf, mode);
+            assert_eq!(reference.status, out.status, "status differ for {}", mode);
+            assert_eq!(reference.stdout, out.stdout, "stdout differ for {}", mode);
+        }
+        assert_eq!(reference.status.code(), Some(exp_code));
+        assert_eq!(reference.stdout.as_slice(), exp_stdout);
+    }
+
     #[test]
-    fn interp_matches_tcg_interp() {
-        let asm = "tests/bare_hello.S";
-        let _ = std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm, "-o", "/tmp/hello.o"])
-            .status();
-        let _ = std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", "/tmp/hello", "/tmp/hello.o"])
-            .status();
-        let hello = "/tmp/hello";
-        let remu = "./target/debug/remu";
-        let out1 = std::process::Command::new(remu)
-            .args(["--mode", "interp", hello])
-            .output()
-            .expect("interp");
-        let out2 = std::process::Command::new(remu)
-            .args(["--mode", "tcg-interp", hello])
-            .output()
-            .expect("tcg");
-        let out3 = std::process::Command::new(remu)
-            .args(["--mode", "jit", hello])
-            .output()
-            .expect("jit");
-        assert_eq!(out1.status, out2.status);
-        assert_eq!(out1.stdout, out2.stdout);
-        assert_eq!(out1.status, out3.status);
-        assert_eq!(out1.stdout, out3.stdout);
+    fn hello_matches_all_modes() {
+        assert_all_modes_match("tests/bare_hello.S", 42, b"Hello RV64\n");
     }
 
     #[test]
     fn c_ext_matches_all_modes() {
-        let asm = "tests/bare_hello_c.S";
-        let _ = std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm, "-o", "/tmp/hello_c.o"])
-            .status();
-        let _ = std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", "/tmp/hello_c", "/tmp/hello_c.o"])
-            .status();
-        let hello = "/tmp/hello_c";
-        let remu = "./target/debug/remu";
-        let out1 = std::process::Command::new(remu)
-            .args(["--mode", "interp", hello])
-            .output()
-            .expect("interp");
-        let out2 = std::process::Command::new(remu)
-            .args(["--mode", "tcg-interp", hello])
-            .output()
-            .expect("tcg");
-        let out3 = std::process::Command::new(remu)
-            .args(["--mode", "jit", hello])
-            .output()
-            .expect("jit");
-        assert_eq!(out1.status, out2.status);
-        assert_eq!(out1.stdout, out2.stdout);
-        assert_eq!(out1.status, out3.status);
-        assert_eq!(out1.stdout, out3.stdout);
+        assert_all_modes_match("tests/bare_hello_c.S", 42, b"Hello RV64\n");
     }
 
     #[test]
     fn mem_matches_all_modes() {
-        let asm = "tests/bare_mem.S";
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_mem.o"])
-            .status();
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", "/tmp/bare_mem", "/tmp/bare_mem.o"])
-            .status();
-        let elf = "/tmp/bare_mem";
-        let remu = "./target/debug/remu";
-        for &mode in &["interp", "tcg-interp", "jit"] {
-            let out = ::std::process::Command::new(remu)
-                .args(["--mode", mode, elf])
-                .output()
-                .expect(mode);
-            assert_eq!(out.status.code(), Some(42), "{}", mode);
-            assert_eq!(out.stdout, b"MEMTEST\n", "{}", mode);
-        }
+        assert_all_modes_match("tests/bare_mem.S", 42, b"MEMTEST\n");
     }
 
     #[test]
     fn arith_and_branches_match_all_modes() {
-        let asm = "tests/bare_arith.S";
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_arith.o"])
-            .status();
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", "/tmp/bare_arith", "/tmp/bare_arith.o"])
-            .status();
-        let elf = "/tmp/bare_arith";
-        let remu = "./target/debug/remu";
-        for &mode in &["interp", "tcg-interp", "jit"] {
-            let out = ::std::process::Command::new(remu)
-                .args(["--mode", mode, elf])
-                .output()
-                .expect(mode);
-            assert_eq!(out.status.code(), Some(42), "{}", mode);
-            assert_eq!(out.stdout, b"OK\n", "{}", mode);
-        }
+        assert_all_modes_match("tests/bare_arith.S", 42, b"OK\n");
     }
 
     #[test]
     fn fp_matches_all_modes() {
-        let asm = "tests/bare_fp.S";
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm, "-o", "/tmp/bare_fp.o"])
-            .status();
-        let _ = ::std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", "/tmp/bare_fp", "/tmp/bare_fp.o"])
-            .status();
-        let elf = "/tmp/bare_fp";
-        let remu = "./target/debug/remu";
-        for &mode in &["interp", "tcg-interp", "jit"] {
-            let out = ::std::process::Command::new(remu)
-                .args(["--mode", mode, elf])
-                .output()
-                .expect(mode);
-            assert_eq!(out.status.code(), Some(42), "{}", mode);
-        }
+        assert_all_modes_match("tests/bare_fp.S", 42, b"");
     }
 }
