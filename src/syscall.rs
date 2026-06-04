@@ -1,3 +1,5 @@
+use std::io::Write as _;
+
 pub fn handle_ecall(
     cpu: &mut crate::cpu::Cpu,
     mem: &mut crate::memory::GuestMemory,
@@ -10,10 +12,10 @@ pub fn handle_ecall(
             let len = cpu.read_gpr(12) as usize;
             if fd == 1 || fd == 2 {
                 let data = mem.read_bytes(buf_addr, len)?;
-                let stdout = ::std::io::stdout();
+                let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
-                let written = ::std::io::Write::write(&mut handle, &data)?;
-                let _ = ::std::io::Write::flush(&mut handle);
+                let written = handle.write(&data)?;
+                let _ = handle.flush();
                 cpu.write_gpr(10, written as u64);
             } else {
                 cpu.write_gpr(10, u64::MAX);
@@ -126,10 +128,10 @@ pub fn handle_ecall(
                     let len = mem.read_u64(iovp + (i as u64) * 16 + 8)? as usize;
                     if len > 0 {
                         let data = mem.read_bytes(base, len)?;
-                        let stdout = ::std::io::stdout();
+                        let stdout = std::io::stdout();
                         let mut handle = stdout.lock();
-                        let _ = ::std::io::Write::write_all(&mut handle, &data);
-                        let _ = ::std::io::Write::flush(&mut handle);
+                        let _ = handle.write_all(&data);
+                        let _ = handle.flush();
                         total += len as u64;
                     }
                 }

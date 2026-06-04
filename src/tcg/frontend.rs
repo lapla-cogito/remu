@@ -2,6 +2,7 @@ pub fn translate_block(
     start_pc: u64,
     mem: &crate::memory::GuestMemory,
     max_insns: u32,
+    trace: bool,
 ) -> (crate::tcg::context::TcgContext, u64) {
     let mut ctx = crate::tcg::context::TcgContext::new();
     let mut pc = start_pc;
@@ -14,6 +15,9 @@ pub fn translate_block(
             Ok(v) => v,
             Err(_) => break,
         };
+        if trace {
+            println!("in_asm: {:#x}: {:?}", pc, instr);
+        }
         count += 1;
         let after_pc = pc.wrapping_add(ilen as u64);
         match instr {
@@ -1837,6 +1841,12 @@ pub fn translate_block(
             }
         }
         pc = after_pc;
+    }
+    if trace {
+        println!("--- TCG ops for {:#x} ---", start_pc);
+        for (i, op) in ctx.ops.iter().enumerate() {
+            println!("op[{}]: {:?}", i, op);
+        }
     }
     (ctx, pc)
 }

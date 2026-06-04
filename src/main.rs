@@ -36,7 +36,11 @@ fn main() -> anyhow::Result<()> {
             crate::interp::step(&mut cpu, &mut mem)?;
         } else if args.mode == "tcg-interp" {
             let block_start = cpu.pc;
-            let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
+            if args.trace {
+                println!("trace: TB {:#x}", block_start);
+            }
+            let (ctx, end_pc) =
+                crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
             let next_pc = crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
             cpu.pc = next_pc.unwrap_or(end_pc);
             if cpu.pc == block_start {
@@ -44,8 +48,12 @@ fn main() -> anyhow::Result<()> {
             }
         } else if args.mode == "jit" {
             let block_start = cpu.pc;
-            let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
-            let buf = crate::tcg::jit::compile(&ctx, end_pc)?;
+            if args.trace {
+                println!("trace: TB {:#x}", block_start);
+            }
+            let (ctx, end_pc) =
+                crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
+            let buf = crate::tcg::jit::compile(&ctx, end_pc, args.trace)?;
             let f: extern "C" fn(*mut u64, *mut u64, *mut u8) -> u64 =
                 unsafe { std::mem::transmute(buf.as_ptr()) };
             let gpr = cpu.gpr.as_mut_ptr();

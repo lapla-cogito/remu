@@ -1,9 +1,11 @@
 use dynasmrt::DynasmApi as _;
 use dynasmrt::DynasmLabelApi as _;
+use std::io::Write as _;
 
 pub fn compile(
     ctx: &crate::tcg::context::TcgContext,
     default_next_pc: u64,
+    trace: bool,
 ) -> anyhow::Result<dynasmrt::ExecutableBuffer> {
     let mut asm = dynasmrt::x64::Assembler::new().map_err(|e| anyhow::anyhow!("{}", e))?;
     let temp_base: i32 = -32;
@@ -1338,6 +1340,17 @@ pub fn compile(
         ; ret
     );
     let buf = asm.finalize().map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    if trace {
+        let bytes: &[u8] = &buf;
+        println!("out_asm: {} bytes", bytes.len());
+        for (i, chunk) in bytes.chunks(16).take(4).enumerate() {
+            print!("{:04x}:", i * 16);
+            for b in chunk {
+                print!(" {:02x}", b);
+            }
+            println!();
+        }
+    }
     Ok(buf)
 }
 
@@ -1349,8 +1362,8 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
             let buf = *gpr.add(11) as usize;
             let len = *gpr.add(12) as usize;
             if fd == 1 || fd == 2 {
-                let slice = ::std::slice::from_raw_parts(mem.add(buf), len);
-                let _ = ::std::io::Write::write_all(&mut ::std::io::stdout(), slice);
+                let slice = std::slice::from_raw_parts(mem.add(buf), len);
+                let _ = std::io::stdout().write_all(slice);
                 *gpr.add(10) = len as u64;
             } else {
                 *gpr.add(10) = u64::MAX;
@@ -1481,8 +1494,8 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
                             | (b7 << 56)) as usize
                     };
                     if len > 0 {
-                        let data = ::std::slice::from_raw_parts(mem.add(base as usize), len);
-                        let _ = ::std::io::Write::write_all(&mut ::std::io::stdout(), data);
+                        let data = std::slice::from_raw_parts(mem.add(base as usize), len);
+                        let _ = std::io::stdout().write_all(data);
                         total += len as u64;
                     }
                 }

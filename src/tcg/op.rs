@@ -1,4 +1,4 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum TcgOpcode {
     MovI64,
     AddI64,
@@ -101,13 +101,14 @@ pub enum TcgOpcode {
     FClassD,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum TcgArg {
     Temp(u32),
     Const(u64),
     Label(u32),
 }
 
+#[derive(Debug)]
 pub struct TcgOp {
     pub opc: TcgOpcode,
     pub args: smallvec::SmallVec<[TcgArg; 4]>,
