@@ -448,8 +448,10 @@ pub fn translate_block(
             }
             crate::decode::Instr::Lui { rd, imm } => {
                 if rd != 0 {
-                    let t1 = ctx.new_const(imm as u64);
-                    ctx.gen_set_gpr_i64(rd, t1);
+                    let tconst = ctx.new_const(imm as u64);
+                    let t = ctx.new_temp();
+                    ctx.gen_mov_i64(t, tconst);
+                    ctx.gen_set_gpr_i64(rd, t);
                 }
             }
             crate::decode::Instr::Lb { rd, rs1, imm } => {
@@ -576,18 +578,33 @@ pub fn translate_block(
                 ctx.gen_get_gpr_i64(trs2, rs2);
                 ctx.gen_qemu_st64(trs2, taddr);
             }
-            crate::decode::Instr::Jal { rd, imm: _ } => {
+            crate::decode::Instr::Jal { rd, imm } => {
                 if rd != 0 {
                     let tlink = ctx.new_const(after_pc);
                     ctx.gen_set_gpr_i64(rd, tlink);
                 }
+                let l = ctx.new_label();
+                ctx.gen_br(l);
+                ctx.gen_set_label(l);
+                let ttarget = ctx.new_const(pc.wrapping_add(imm as u64));
+                ctx.gen_set_next_pc(ttarget);
+                ctx.gen_exit_tb();
                 break;
             }
-            crate::decode::Instr::Jalr { rd, rs1: _, imm: _ } => {
+            crate::decode::Instr::Jalr { rd, rs1, imm } => {
                 if rd != 0 {
                     let tlink = ctx.new_const(after_pc);
                     ctx.gen_set_gpr_i64(rd, tlink);
                 }
+                let trs = ctx.new_temp();
+                ctx.gen_get_gpr_i64(trs, rs1);
+                let timm = ctx.new_const(imm as u64);
+                let ttarget = ctx.new_temp();
+                ctx.gen_add_i64(ttarget, trs, timm);
+                let tmasked = ctx.new_temp();
+                ctx.gen_and_i64(tmasked, ttarget, ctx.new_const(!1u64));
+                ctx.gen_set_next_pc(tmasked);
+                ctx.gen_exit_tb();
                 break;
             }
             crate::decode::Instr::Ecall => {

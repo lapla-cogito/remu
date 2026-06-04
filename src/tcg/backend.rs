@@ -81,6 +81,27 @@ pub fn execute_tcg(
                 ) = (&op.args[0], &op.args[1], &op.args[2])
                 {
                     temps[*d as usize] = temps[*s1 as usize] & temps[*s2 as usize];
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Const(c),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    temps[*d as usize] = temps[*s1 as usize] & *c;
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Const(c1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    temps[*d as usize] = *c1 & temps[*s2 as usize];
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Const(c1),
+                    crate::tcg::op::TcgArg::Const(c2),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    temps[*d as usize] = *c1 & *c2;
                 }
             }
             crate::tcg::op::TcgOpcode::OrI64 => {
@@ -301,14 +322,20 @@ pub fn execute_tcg(
                 if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Const(r)) =
                     (&op.args[0], &op.args[1])
                 {
-                    temps[*d as usize] = cpu.read_gpr(*r as u8);
+                    let rv = cpu.read_gpr(*r as u8);
+                    temps[*d as usize] = rv;
                 }
             }
             crate::tcg::op::TcgOpcode::SetGprI64 => {
                 if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Temp(s)) =
                     (&op.args[0], &op.args[1])
                 {
-                    cpu.write_gpr(*r as u8, temps[*s as usize]);
+                    let val = temps[*s as usize];
+                    cpu.write_gpr(*r as u8, val);
+                } else if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Const(c)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    cpu.write_gpr(*r as u8, *c);
                 }
             }
             crate::tcg::op::TcgOpcode::QemuLd8Signed => {
@@ -962,20 +989,6 @@ pub fn execute_tcg(
                 {
                     let v = temps[*s as usize] as u32;
                     temps[*d as usize] = (v as u64) | 0xffff_ffff_0000_0000u64;
-                }
-            }
-            crate::tcg::op::TcgOpcode::FMvXD => {
-                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
-                    (&op.args[0], &op.args[1])
-                {
-                    temps[*d as usize] = temps[*s as usize];
-                }
-            }
-            crate::tcg::op::TcgOpcode::FMvDX => {
-                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
-                    (&op.args[0], &op.args[1])
-                {
-                    temps[*d as usize] = temps[*s as usize];
                 }
             }
             crate::tcg::op::TcgOpcode::FSgnjS => {

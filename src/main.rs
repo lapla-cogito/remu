@@ -42,50 +42,19 @@ fn main() -> anyhow::Result<()> {
             if cpu.pc == block_start {
                 return Ok(());
             }
-            // If ended at unhandled control (branch), execute it with interp to update pc
-            if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
-                && matches!(
-                    last,
-                    crate::decode::Instr::Beq { .. }
-                        | crate::decode::Instr::Bne { .. }
-                        | crate::decode::Instr::Blt { .. }
-                        | crate::decode::Instr::Bge { .. }
-                        | crate::decode::Instr::Bltu { .. }
-                        | crate::decode::Instr::Bgeu { .. }
-                        | crate::decode::Instr::Jal { .. }
-                        | crate::decode::Instr::Jalr { .. }
-                )
-            {
-                crate::interp::step(&mut cpu, &mut mem)?;
-            }
         } else if args.mode == "jit" {
             let block_start = cpu.pc;
             let (ctx, end_pc) = crate::tcg::frontend::translate_block(block_start, &mem, 64);
-            let buf = crate::tcg::jit::compile(&ctx)?;
-            let f: extern "C" fn(*mut u64, *mut u64, *mut u8) =
+            let buf = crate::tcg::jit::compile(&ctx, end_pc)?;
+            let f: extern "C" fn(*mut u64, *mut u64, *mut u8) -> u64 =
                 unsafe { std::mem::transmute(buf.as_ptr()) };
             let gpr = cpu.gpr.as_mut_ptr();
             let fpr = cpu.fpr.as_mut_ptr();
             let mem_base = mem.mem_ptr();
-            f(gpr, fpr, mem_base);
-            cpu.pc = end_pc;
+            let next_pc = f(gpr, fpr, mem_base);
+            cpu.pc = next_pc;
             if cpu.pc == block_start {
                 return Ok(());
-            }
-            if let Ok((_, last)) = crate::decode::fetch_decode(&mem, cpu.pc)
-                && matches!(
-                    last,
-                    crate::decode::Instr::Beq { .. }
-                        | crate::decode::Instr::Bne { .. }
-                        | crate::decode::Instr::Blt { .. }
-                        | crate::decode::Instr::Bge { .. }
-                        | crate::decode::Instr::Bltu { .. }
-                        | crate::decode::Instr::Bgeu { .. }
-                        | crate::decode::Instr::Jal { .. }
-                        | crate::decode::Instr::Jalr { .. }
-                )
-            {
-                crate::interp::step(&mut cpu, &mut mem)?;
             }
         } else {
             anyhow::bail!("only interp, tcg-interp and jit modes supported");

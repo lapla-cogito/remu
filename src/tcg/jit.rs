@@ -3,16 +3,27 @@ use dynasmrt::DynasmLabelApi as _;
 
 pub fn compile(
     ctx: &crate::tcg::context::TcgContext,
+    default_next_pc: u64,
 ) -> anyhow::Result<dynasmrt::ExecutableBuffer> {
     let mut asm = dynasmrt::x64::Assembler::new().map_err(|e| anyhow::anyhow!("{}", e))?;
     let temp_base: i32 = -32;
+    let nlabels = ctx.num_labels() as usize;
+    let mut tcg_labels: Vec<dynasmrt::DynamicLabel> = Vec::with_capacity(nlabels.max(1));
+    for _ in 0..nlabels.max(1) {
+        tcg_labels.push(asm.new_dynamic_label());
+    }
+    let epilogue = asm.new_dynamic_label();
+    let nextpc_off: i32 = -960;
+    let defi = default_next_pc as i64;
     dynasmrt::dynasm!(asm
         ; push rbp
         ; mov rbp, rsp
-        ; sub rsp, 256
+        ; sub rsp, 1280
         ; mov [rbp-8], rdi
         ; mov [rbp-16], rsi
         ; mov [rbp-24], rdx
+        ; mov rax, QWORD defi
+        ; mov [rbp + nextpc_off], rax
     );
     for op in &ctx.ops {
         match op.opc {
@@ -37,6 +48,16 @@ pub fn compile(
                     let reg_off = (r as i32) * 8;
                     dynasmrt::dynasm!(asm
                         ; mov rax, [rbp + off]
+                        ; mov rdx, [rbp-8]
+                        ; mov [rdx + reg_off], rax
+                    );
+                } else if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Const(c)) =
+                    (op.args[0], op.args[1])
+                {
+                    let reg_off = (r as i32) * 8;
+                    let ci = c as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
                         ; mov rdx, [rbp-8]
                         ; mov [rdx + reg_off], rax
                     );
@@ -67,6 +88,306 @@ pub fn compile(
                         ; mov [rdx + reg_off], rax
                     );
                 }
+            }
+            crate::tcg::op::TcgOpcode::MovI64 => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_s = temp_base - (s as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + off_s]
+                        ; mov [rbp + off_d], rax
+                    );
+                } else if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Const(c)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let ci = c as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov [rbp + off_d], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::Br => {
+                if let crate::tcg::op::TcgArg::Label(l) = op.args[0]
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let dl = tcg_labels[l as usize];
+                    dynasmrt::dynasm!(asm ; jmp =>dl);
+                }
+            }
+            crate::tcg::op::TcgOpcode::BrCondI64 => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                    crate::tcg::op::TcgArg::Const(c),
+                    crate::tcg::op::TcgArg::Label(l),
+                ) = (op.args[0], op.args[1], op.args[2], op.args[3])
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let off1 = temp_base - (s1 as i32) * 8;
+                    let off2 = temp_base - (s2 as i32) * 8;
+                    let dl = tcg_labels[l as usize];
+                    let cond = c as u32;
+                    match cond {
+                        0 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; je =>dl
+                            );
+                        }
+                        1 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; jne =>dl
+                            );
+                        }
+                        2 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; jl =>dl
+                            );
+                        }
+                        3 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; jb =>dl
+                            );
+                        }
+                        4 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; jge =>dl
+                            );
+                        }
+                        5 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; cmp rax, [rbp + off2]
+                                ; jae =>dl
+                            );
+                        }
+                        _ => {}
+                    }
+                } else if let (
+                    crate::tcg::op::TcgArg::Temp(s1),
+                    crate::tcg::op::TcgArg::Const(c2),
+                    crate::tcg::op::TcgArg::Const(c),
+                    crate::tcg::op::TcgArg::Label(l),
+                ) = (op.args[0], op.args[1], op.args[2], op.args[3])
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let off1 = temp_base - (s1 as i32) * 8;
+                    let ci2 = c2 as i64;
+                    let dl = tcg_labels[l as usize];
+                    let cond = c as u32;
+                    match cond {
+                        0 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; je =>dl
+                            );
+                        }
+                        1 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jne =>dl
+                            );
+                        }
+                        2 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jl =>dl
+                            );
+                        }
+                        3 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jb =>dl
+                            );
+                        }
+                        4 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jge =>dl
+                            );
+                        }
+                        5 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, [rbp + off1]
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jae =>dl
+                            );
+                        }
+                        _ => {}
+                    }
+                } else if let (
+                    crate::tcg::op::TcgArg::Const(c1),
+                    crate::tcg::op::TcgArg::Temp(s2),
+                    crate::tcg::op::TcgArg::Const(c),
+                    crate::tcg::op::TcgArg::Label(l),
+                ) = (op.args[0], op.args[1], op.args[2], op.args[3])
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let off2 = temp_base - (s2 as i32) * 8;
+                    let ci1 = c1 as i64;
+                    let dl = tcg_labels[l as usize];
+                    let cond = c as u32;
+                    match cond {
+                        0 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; je =>dl
+                            );
+                        }
+                        1 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; jne =>dl
+                            );
+                        }
+                        2 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; jl =>dl
+                            );
+                        }
+                        3 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; jb =>dl
+                            );
+                        }
+                        4 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; jge =>dl
+                            );
+                        }
+                        5 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; cmp rax, [rbp + off2]
+                                ; jae =>dl
+                            );
+                        }
+                        _ => {}
+                    }
+                } else if let (
+                    crate::tcg::op::TcgArg::Const(c1),
+                    crate::tcg::op::TcgArg::Const(c2),
+                    crate::tcg::op::TcgArg::Const(c),
+                    crate::tcg::op::TcgArg::Label(l),
+                ) = (op.args[0], op.args[1], op.args[2], op.args[3])
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let ci1 = c1 as i64;
+                    let ci2 = c2 as i64;
+                    let dl = tcg_labels[l as usize];
+                    let cond = c as u32;
+                    match cond {
+                        0 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; je =>dl
+                            );
+                        }
+                        1 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jne =>dl
+                            );
+                        }
+                        2 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jl =>dl
+                            );
+                        }
+                        3 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jb =>dl
+                            );
+                        }
+                        4 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jge =>dl
+                            );
+                        }
+                        5 => {
+                            dynasmrt::dynasm!(asm
+                                ; mov rax, QWORD ci1
+                                ; mov rcx, QWORD ci2
+                                ; cmp rax, rcx
+                                ; jae =>dl
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            crate::tcg::op::TcgOpcode::SetLabel => {
+                if let crate::tcg::op::TcgArg::Label(l) = op.args[0]
+                    && (l as usize) < tcg_labels.len()
+                {
+                    let dl = tcg_labels[l as usize];
+                    asm.dynamic_label(dl);
+                }
+            }
+            crate::tcg::op::TcgOpcode::SetNextPcI64 => {
+                let off = nextpc_off;
+                if let crate::tcg::op::TcgArg::Temp(t) = op.args[0] {
+                    let offt = temp_base - (t as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, [rbp + offt]
+                        ; mov [rbp + off], rax
+                    );
+                } else if let crate::tcg::op::TcgArg::Const(c) = op.args[0] {
+                    let ci = c as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov [rbp + off], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::ExitTb => {
+                let el = epilogue;
+                dynasmrt::dynasm!(asm ; jmp =>el);
             }
             crate::tcg::op::TcgOpcode::AddI64 => {
                 if let (
@@ -1009,7 +1330,9 @@ pub fn compile(
             _ => {}
         }
     }
+    asm.dynamic_label(epilogue);
     dynasmrt::dynasm!(asm
+        ; mov rax, [rbp + nextpc_off]
         ; mov rsp, rbp
         ; pop rbp
         ; ret

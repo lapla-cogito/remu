@@ -39,7 +39,6 @@ impl TcgContext {
         crate::tcg::op::TcgArg::Label(l)
     }
 
-    #[expect(dead_code)]
     pub fn gen_mov_i64(&mut self, dst: crate::tcg::op::TcgArg, src: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(dst);
@@ -476,7 +475,6 @@ impl TcgContext {
         });
     }
 
-    #[expect(dead_code)]
     pub fn gen_br(&mut self, label: crate::tcg::op::TcgArg) {
         let mut args = smallvec::SmallVec::new();
         args.push(label);
@@ -1104,28 +1102,6 @@ impl TcgContext {
         args.push(src);
         self.ops.push(crate::tcg::op::TcgOp {
             opc: crate::tcg::op::TcgOpcode::FMvWX,
-            args,
-        });
-    }
-
-    #[expect(dead_code)]
-    pub fn gen_fmv_xd(&mut self, dst: crate::tcg::op::TcgArg, src: crate::tcg::op::TcgArg) {
-        let mut args = smallvec::SmallVec::new();
-        args.push(dst);
-        args.push(src);
-        self.ops.push(crate::tcg::op::TcgOp {
-            opc: crate::tcg::op::TcgOpcode::FMvXD,
-            args,
-        });
-    }
-
-    #[expect(dead_code)]
-    pub fn gen_fmv_dx(&mut self, dst: crate::tcg::op::TcgArg, src: crate::tcg::op::TcgArg) {
-        let mut args = smallvec::SmallVec::new();
-        args.push(dst);
-        args.push(src);
-        self.ops.push(crate::tcg::op::TcgOp {
-            opc: crate::tcg::op::TcgOpcode::FMvDX,
             args,
         });
     }

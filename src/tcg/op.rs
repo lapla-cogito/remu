@@ -1,6 +1,5 @@
 #[derive(Clone, Copy)]
 pub enum TcgOpcode {
-    #[expect(dead_code)]
     MovI64,
     AddI64,
     SubI64,
@@ -34,7 +33,6 @@ pub enum TcgOpcode {
     QemuSt64,
     SetNextPcI64,
     SetLabel,
-    #[expect(dead_code)]
     Br,
     BrCondI64,
     ExitTb,
@@ -83,10 +81,6 @@ pub enum TcgOpcode {
     FCvtDS,
     FMvXW,
     FMvWX,
-    #[expect(dead_code)]
-    FMvXD,
-    #[expect(dead_code)]
-    FMvDX,
     FSgnjS,
     FSgnjD,
     FSgnjnS,
