@@ -6,6 +6,9 @@ mod memory;
 mod syscall;
 mod tcg;
 
+type TcgTbCache = hashbrown::HashMap<u64, (crate::tcg::context::TcgContext, u64)>;
+type JitTbCache = hashbrown::HashMap<u64, (dynasmrt::ExecutableBuffer, u64)>;
+
 #[derive(clap::Parser)]
 #[command(
     version,
@@ -31,6 +34,8 @@ fn main() -> anyhow::Result<()> {
         println!("trace: entry {:#x}", cpu.pc);
     }
     let mut steps: u64 = 0;
+    let mut tcg_cache: TcgTbCache = hashbrown::HashMap::new();
+    let mut jit_cache: JitTbCache = hashbrown::HashMap::new();
     loop {
         if args.mode == "interp" {
             crate::interp::step(&mut cpu, &mut mem)?;
@@ -39,9 +44,16 @@ fn main() -> anyhow::Result<()> {
             if args.trace {
                 println!("trace: TB {:#x}", block_start);
             }
-            let (ctx, end_pc) =
-                crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
-            let next_pc = crate::tcg::backend::execute_tcg(&ctx, &mut cpu, &mut mem);
+            let (ctx, end_pc) = if let Some(entry) = tcg_cache.get(&block_start) {
+                (&entry.0, entry.1)
+            } else {
+                let translated =
+                    crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
+                tcg_cache.insert(block_start, translated);
+                let entry = tcg_cache.get(&block_start).expect("just inserted");
+                (&entry.0, entry.1)
+            };
+            let next_pc = crate::tcg::backend::execute_tcg(ctx, &mut cpu, &mut mem);
             cpu.pc = next_pc.unwrap_or(end_pc);
             if cpu.pc == block_start {
                 return Ok(());
@@ -51,9 +63,16 @@ fn main() -> anyhow::Result<()> {
             if args.trace {
                 println!("trace: TB {:#x}", block_start);
             }
-            let (ctx, end_pc) =
-                crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
-            let buf = crate::tcg::jit::compile(&ctx, end_pc, args.trace)?;
+            let buf = if let Some(entry) = jit_cache.get(&block_start) {
+                &entry.0
+            } else {
+                let translated =
+                    crate::tcg::frontend::translate_block(block_start, &mem, 64, args.trace);
+                let b = crate::tcg::jit::compile(&translated.0, translated.1, args.trace)?;
+                jit_cache.insert(block_start, (b, translated.1));
+                let entry = jit_cache.get(&block_start).expect("just inserted");
+                &entry.0
+            };
             let f: extern "C" fn(*mut u64, *mut u64, *mut u8) -> u64 =
                 unsafe { std::mem::transmute(buf.as_ptr()) };
             let gpr = cpu.gpr.as_mut_ptr();
