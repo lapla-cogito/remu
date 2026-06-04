@@ -180,7 +180,7 @@ pub fn handle_ecall(
                 path.push(b);
             }
             let pstr = String::from_utf8_lossy(&path);
-            let val = if pstr == "/proc/self/exe" {
+            let val = if pstr.starts_with("/proc/se") {
                 let fake = b"remu";
                 let n = std::cmp::min(fake.len(), bufsiz);
                 mem.write_bytes(buf, &fake[..n])?;

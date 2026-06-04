@@ -36,7 +36,9 @@ void _start(void) {
     unsigned long cur = sys_brk(0);
     unsigned long nb = cur + 0x1000;
     sys_brk(nb);
-    sys_write(1, msg_brk, 4);
+    char *p = (char *) cur;
+    p[0] = 'B'; p[1] = 'R'; p[2] = 'K'; p[3] = 'U'; p[4] = 'S'; p[5] = 'E'; p[6] = '\n';
+    sys_write(1, p, 7);
 
     sys_openat(-100, 0, 0, 0);
     sys_close(100);

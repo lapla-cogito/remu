@@ -1605,11 +1605,14 @@ pub fn decode_compressed(raw: u16) -> Instr {
         (2, 3) => {
             // c.ldsp
             let rd = ((raw >> 7) & 0x1f) as u8;
-            let mut imm = 0u64;
-            imm |= (((raw >> 4) & 3) as u64) << 3;
-            imm |= (((raw >> 12) & 1) as u64) << 5;
-            imm |= (((raw >> 2) & 3) as u64) << 6;
-            imm |= (((raw >> 6) & 1) as u64) << 4;
+            let mut u = 0u64;
+            u |= ((raw >> 10) & 1) as u64;
+            u |= (((raw >> 11) & 1) as u64) << 1;
+            u |= (((raw >> 12) & 1) as u64) << 2;
+            u |= (((raw >> 7) & 1) as u64) << 3;
+            u |= (((raw >> 8) & 1) as u64) << 4;
+            u |= (((raw >> 9) & 1) as u64) << 5;
+            let imm = u << 3;
             if rd != 0 {
                 Instr::Ld {
                     rd,
@@ -1642,11 +1645,14 @@ pub fn decode_compressed(raw: u16) -> Instr {
         (2, 7) => {
             // c.sdsp
             let rs2 = ((raw >> 2) & 0x1f) as u8;
-            let mut imm = 0u64;
-            imm |= (((raw >> 4) & 3) as u64) << 3;
-            imm |= (((raw >> 12) & 1) as u64) << 5;
-            imm |= (((raw >> 2) & 3) as u64) << 6;
-            imm |= (((raw >> 6) & 1) as u64) << 4;
+            let mut u = 0u64;
+            u |= ((raw >> 10) & 1) as u64;
+            u |= (((raw >> 11) & 1) as u64) << 1;
+            u |= (((raw >> 12) & 1) as u64) << 2;
+            u |= (((raw >> 7) & 1) as u64) << 3;
+            u |= (((raw >> 8) & 1) as u64) << 4;
+            u |= (((raw >> 9) & 1) as u64) << 5;
+            let imm = u << 3;
             Instr::Sd {
                 rs1: 2,
                 rs2,
