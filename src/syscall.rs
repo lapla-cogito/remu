@@ -7,6 +7,7 @@ pub fn handle_ecall(
     let nr = cpu.read_gpr(17);
     match nr {
         64 => {
+            // write
             let fd = cpu.read_gpr(10) as i32;
             let buf_addr = cpu.read_gpr(11);
             let len = cpu.read_gpr(12) as usize;
@@ -23,14 +24,17 @@ pub fn handle_ecall(
             Ok(None)
         }
         93 => {
+            // exit
             let code = cpu.read_gpr(10) as i32;
             Ok(Some(code))
         }
         94 => {
+            // exit_group
             let code = cpu.read_gpr(10) as i32;
             Ok(Some(code))
         }
         63 => {
+            // read
             let fd = cpu.read_gpr(10) as i32;
             if fd == 0 {
                 cpu.write_gpr(10, 0);
@@ -40,6 +44,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         80 => {
+            // fstat
             let fd = cpu.read_gpr(10) as i32;
             let statbuf = cpu.read_gpr(11);
             if fd == 0 || fd == 1 || fd == 2 {
@@ -59,6 +64,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         160 => {
+            // uname
             let buf = cpu.read_gpr(10);
             let mut uts = [0u8; 65 * 6];
             let sys = b"Linux\0";
@@ -78,6 +84,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         214 => {
+            // brk
             let addr = cpu.read_gpr(10);
             if addr == 0 {
                 cpu.write_gpr(10, cpu.brk);
@@ -90,6 +97,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         29 => {
+            // ioctl
             let fd = cpu.read_gpr(10) as i32;
             let cmd = cpu.read_gpr(11);
             let arg = cpu.read_gpr(12);
@@ -105,10 +113,12 @@ pub fn handle_ecall(
             Ok(None)
         }
         56 => {
+            // openat
             cpu.write_gpr(10, (-2i64) as u64);
             Ok(None)
         }
         57 => {
+            // close
             let fd = cpu.read_gpr(10) as i32;
             if fd >= 0 {
                 cpu.write_gpr(10, 0);
@@ -118,6 +128,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         66 => {
+            // writev
             let fd = cpu.read_gpr(10) as i32;
             let iovp = cpu.read_gpr(11);
             let iovcnt = cpu.read_gpr(12) as usize;
@@ -142,6 +153,7 @@ pub fn handle_ecall(
             Ok(None)
         }
         222 => {
+            // mmap
             let addr = cpu.read_gpr(10);
             let len = cpu.read_gpr(11);
             let mut ret = addr;
@@ -154,7 +166,77 @@ pub fn handle_ecall(
             cpu.write_gpr(10, ret);
             Ok(None)
         }
+        78 => {
+            // readlinkat
+            let path_addr = cpu.read_gpr(11);
+            let buf = cpu.read_gpr(12);
+            let bufsiz = cpu.read_gpr(13) as usize;
+            let mut path = vec![];
+            for i in 0..256 {
+                let b = mem.read_u8(path_addr + i)?;
+                if b == 0 {
+                    break;
+                }
+                path.push(b);
+            }
+            let pstr = String::from_utf8_lossy(&path);
+            let val = if pstr == "/proc/self/exe" {
+                let fake = b"remu";
+                let n = std::cmp::min(fake.len(), bufsiz);
+                mem.write_bytes(buf, &fake[..n])?;
+                n as i64
+            } else {
+                -2 // ENOENT
+            };
+            cpu.write_gpr(10, val as u64);
+            Ok(None)
+        }
+        96 => {
+            // set_tid_address
+            cpu.write_gpr(10, 1);
+            Ok(None)
+        }
+        99 => {
+            // set_robust_list
+            cpu.write_gpr(10, 0);
+            Ok(None)
+        }
+        172 => {
+            // getpid
+            cpu.write_gpr(10, 1);
+            Ok(None)
+        }
+        226 => {
+            // mprotect
+            cpu.write_gpr(10, 0);
+            Ok(None)
+        }
+        261 => {
+            // prlimit64
+            let oldp = cpu.read_gpr(13);
+            if oldp != 0 {
+                let mut r = [0u8; 16];
+                let cur: u64 = 8 * 1024 * 1024;
+                let max: u64 = u64::MAX;
+                r[0..8].copy_from_slice(&cur.to_le_bytes());
+                r[8..16].copy_from_slice(&max.to_le_bytes());
+                mem.write_bytes(oldp, &r)?;
+            }
+            cpu.write_gpr(10, 0);
+            Ok(None)
+        }
+        278 => {
+            // getrandom
+            let buf = cpu.read_gpr(10);
+            let len = cpu.read_gpr(11) as usize;
+            for i in 0..len {
+                mem.write_u8(buf + i as u64, (0xA5u8).wrapping_add(i as u8))?;
+            }
+            cpu.write_gpr(10, len as u64);
+            Ok(None)
+        }
         _ => {
+            eprintln!("unhandled syscall nr={}", nr);
             cpu.write_gpr(10, (-38i64) as u64);
             Ok(None)
         }

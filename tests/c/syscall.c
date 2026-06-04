@@ -43,6 +43,24 @@ void _start(void) {
 
     sys_mmap(0, 0x1000, 3, 0x22, -1, 0);
 
+    char pth[] = "/proc/self/exe";
+    char lbuf[16];
+    sys_readlinkat(-100, pth, lbuf, sizeof(lbuf));
+    sys_write(1, "RLINK\n", 6);
+
+    unsigned char rbuf[8];
+    sys_getrandom(rbuf, sizeof(rbuf), 0);
+    sys_write(1, "GRND\n", 5);
+
+    sys_prlimit64(0, 0, 0, 0);
+    sys_write(1, "PRL\n", 4);
+
+    sys_getpid();
+    sys_set_tid_address(0);
+    sys_set_robust_list(0, 0);
+    sys_mprotect(0, 0, 0);
+    sys_write(1, "MORE\n", 5);
+
     sys_write(1, msg_sysok, 6);
     sys_exit(42);
 }

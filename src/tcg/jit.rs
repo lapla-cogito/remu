@@ -1370,7 +1370,7 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
             }
         } else if a7 == 93 || a7 == 94 {
             let code = *gpr.add(10) as i32;
-            ::std::process::exit(code);
+            std::process::exit(code);
         } else if a7 == 63 {
             let fd = *gpr.add(10) as i32;
             if fd == 0 {
@@ -1390,7 +1390,7 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
                 st[20..24].copy_from_slice(&1u32.to_le_bytes());
                 st[32..40].copy_from_slice(&0u64.to_le_bytes());
                 st[56..60].copy_from_slice(&blksize.to_le_bytes());
-                let dst = ::std::slice::from_raw_parts_mut(mem.add(statbuf), 128);
+                let dst = std::slice::from_raw_parts_mut(mem.add(statbuf), 128);
                 dst.copy_from_slice(&st);
                 *gpr.add(10) = 0;
             } else {
@@ -1411,7 +1411,7 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
             for (i, &b) in mach.iter().enumerate() {
                 uts[65 * 4 + i] = b;
             }
-            let dst = ::std::slice::from_raw_parts_mut(mem.add(buf), uts.len());
+            let dst = std::slice::from_raw_parts_mut(mem.add(buf), uts.len());
             dst.copy_from_slice(&uts);
             *gpr.add(10) = 0;
         } else if a7 == 214 {
@@ -1432,7 +1432,7 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
             if fd == 0 || fd == 1 || fd == 2 {
                 if cmd == 0x5401 && arg != 0 {
                     let t = [0u8; 60];
-                    let dst = ::std::slice::from_raw_parts_mut(mem.add(arg), 60);
+                    let dst = std::slice::from_raw_parts_mut(mem.add(arg), 60);
                     dst.copy_from_slice(&t);
                 }
                 *gpr.add(10) = 0;
@@ -1514,6 +1514,57 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
                 ret = (-12i64) as u64;
             }
             *gpr.add(10) = ret;
+        } else if a7 == 78 {
+            // readlinkat (raw)
+            let path_addr = *gpr.add(11);
+            let buf = *gpr.add(12) as usize;
+            let bufsiz = *gpr.add(13) as usize;
+            let mut path = vec![];
+            for i in 0..256 {
+                let b = *mem.add(path_addr as usize + i);
+                if b == 0 {
+                    break;
+                }
+                path.push(b);
+            }
+            let pstr = std::string::String::from_utf8_lossy(&path);
+            let val = if pstr == "/proc/self/exe" {
+                let fake = b"remu";
+                let n = std::cmp::min(fake.len(), bufsiz);
+                let dst = std::slice::from_raw_parts_mut(mem.add(buf), n);
+                dst.copy_from_slice(&fake[..n]);
+                n as i64
+            } else {
+                -2
+            };
+            *gpr.add(10) = val as u64;
+        } else if a7 == 96 {
+            *gpr.add(10) = 1;
+        } else if a7 == 99 {
+            *gpr.add(10) = 0;
+        } else if a7 == 172 {
+            *gpr.add(10) = 1;
+        } else if a7 == 226 {
+            *gpr.add(10) = 0;
+        } else if a7 == 261 {
+            let oldp = *gpr.add(13) as usize;
+            if oldp != 0 {
+                let mut r = [0u8; 16];
+                let cur: u64 = 8 * 1024 * 1024;
+                let max: u64 = u64::MAX;
+                r[0..8].copy_from_slice(&cur.to_le_bytes());
+                r[8..16].copy_from_slice(&max.to_le_bytes());
+                let dst = std::slice::from_raw_parts_mut(mem.add(oldp), 16);
+                dst.copy_from_slice(&r);
+            }
+            *gpr.add(10) = 0;
+        } else if a7 == 278 {
+            let buf = *gpr.add(10) as usize;
+            let len = *gpr.add(11) as usize;
+            for i in 0..len {
+                *mem.add(buf + i) = (0xA5u8).wrapping_add(i as u8);
+            }
+            *gpr.add(10) = len as u64;
         } else {
             *gpr.add(10) = (-38i64) as u64;
         }

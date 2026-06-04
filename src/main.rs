@@ -216,7 +216,7 @@ mod tests {
         assert_all_modes_match(
             "tests/c/syscall.c",
             42,
-            b"FSTAT\nWVOK\nWV\nIOCTL\nUN\nBRK\nSYSOK\n",
+            b"FSTAT\nWVOK\nWV\nIOCTL\nUN\nBRK\nRLINK\nGRND\nPRL\nMORE\nSYSOK\n",
         );
     }
 }

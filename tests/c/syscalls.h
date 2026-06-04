@@ -23,4 +23,11 @@ static long sys_brk(unsigned long addr) { return _sys(214, addr, 0,0,0,0,0); }
 static long sys_openat(int dirfd, const void *path, long flags, long mode) { return _sys(56, dirfd, (long)path, flags, mode,0,0); }
 static long sys_close(int fd) { return _sys(57, fd, 0,0,0,0,0); }
 static long sys_mmap(unsigned long addr, unsigned long len, long prot, long flags, long fd, long off) { return _sys(222, addr, len, prot, flags, fd, off); }
+static long sys_readlinkat(int dirfd, const void *path, void *buf, long bufsiz) { return _sys(78, dirfd, (long)path, (long)buf, bufsiz,0,0); }
+static long sys_getrandom(void *buf, long len, long flags) { return _sys(278, (long)buf, len, flags,0,0,0); }
+static long sys_prlimit64(long pid, long res, void *newp, void *oldp) { return _sys(261, pid, res, (long)newp, (long)oldp,0,0); }
+static long sys_set_tid_address(void *ptr) { return _sys(96, (long)ptr,0,0,0,0,0); }
+static long sys_set_robust_list(void *head, long len) { return _sys(99, (long)head, len,0,0,0,0); }
+static long sys_mprotect(void *addr, long len, long prot) { return _sys(226, (long)addr, len, prot,0,0,0); }
+static long sys_getpid(void) { return _sys(172,0,0,0,0,0,0); }
 static void sys_exit(int code) { _sys(93, code, 0,0,0,0,0); }
