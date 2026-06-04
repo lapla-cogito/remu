@@ -13,6 +13,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Setup Rust-toolchain
         uses: dtolnay/rust-toolchain@nightly
+      - uses: wild-linker/action@latest
       - name: Cache cargo
         uses: ./.github/actions/cache_cargo
       - name: Build
@@ -27,6 +28,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
+      - uses: wild-linker/action@latest
       - name: Cache cargo
         uses: ./.github/actions/cache_cargo
       - name: Run rustfmt
@@ -43,6 +45,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
+      - uses: wild-linker/action@latest
       - name: Cache cargo
         uses: ./.github/actions/cache_cargo
       - run: sudo apt-get update && sudo apt-get -y install qemu-user gcc-riscv64-linux-gnu g++-riscv64-linux-gnu binutils-riscv64-linux-gnu
