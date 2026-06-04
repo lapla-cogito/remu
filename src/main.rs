@@ -95,21 +95,42 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    fn compile_assemble(asm_path: &str, out_elf: &str) -> String {
-        let obj = std::format!("{}.o", out_elf);
-        let s = std::process::Command::new("riscv64-linux-gnu-as")
-            .args(["-march=rv64gc", asm_path, "-o", &obj])
-            .status()
-            .expect("as");
-        if !s.success() {
-            panic!("as failed for {}", asm_path);
-        }
-        let s = std::process::Command::new("riscv64-linux-gnu-ld")
-            .args(["-o", out_elf, &obj])
-            .status()
-            .expect("ld");
-        if !s.success() {
-            panic!("ld failed for {}", out_elf);
+    fn compile_assemble(src_path: &str, out_elf: &str) -> String {
+        if src_path.ends_with(".c") {
+            let s = std::process::Command::new("riscv64-linux-gnu-gcc")
+                .args([
+                    "-march=rv64gc",
+                    "-mabi=lp64d",
+                    "-nostdlib",
+                    "-nostartfiles",
+                    "-O1",
+                    "-fomit-frame-pointer",
+                    "-static",
+                    "-o",
+                    out_elf,
+                    src_path,
+                ])
+                .status()
+                .expect("gcc");
+            if !s.success() {
+                panic!("gcc failed for {}", src_path);
+            }
+        } else {
+            let obj = std::format!("{}.o", out_elf);
+            let s = std::process::Command::new("riscv64-linux-gnu-as")
+                .args(["-march=rv64gc", src_path, "-o", &obj])
+                .status()
+                .expect("as");
+            if !s.success() {
+                panic!("as failed for {}", src_path);
+            }
+            let s = std::process::Command::new("riscv64-linux-gnu-ld")
+                .args(["-o", out_elf, &obj])
+                .status()
+                .expect("ld");
+            if !s.success() {
+                panic!("ld failed for {}", out_elf);
+            }
         }
         out_elf.to_string()
     }
@@ -128,9 +149,10 @@ mod tests {
         }
     }
 
-    fn assert_all_modes_match(asm: &str, exp_code: i32, exp_stdout: &[u8]) {
-        let stem = asm.rsplit('/').next().unwrap_or(asm).trim_end_matches(".S");
-        let elf = compile_assemble(asm, &std::format!("/tmp/{}", stem));
+    fn assert_all_modes_match(src: &str, exp_code: i32, exp_stdout: &[u8]) {
+        let name = src.rsplit('/').next().unwrap_or(src);
+        let stem = name.trim_end_matches(".S").trim_end_matches(".c");
+        let elf = compile_assemble(src, &std::format!("/tmp/{}", stem));
         let modes = ["interp", "tcg-interp", "jit", "qemu"];
         let reference = run_capture(&elf, modes[0]);
         for &mode in &modes[1..] {
@@ -144,26 +166,41 @@ mod tests {
 
     #[test]
     fn hello_matches_all_modes() {
-        assert_all_modes_match("tests/bare_hello.S", 42, b"Hello RV64\n");
+        assert_all_modes_match("tests/asm/hello.S", 42, b"Hello RV64\n");
     }
 
     #[test]
-    fn c_ext_matches_all_modes() {
-        assert_all_modes_match("tests/bare_hello_c.S", 42, b"Hello RV64\n");
+    fn hello_c_matches_all_modes() {
+        assert_all_modes_match("tests/asm/hello_c.S", 42, b"Hello RV64\n");
     }
 
     #[test]
     fn mem_matches_all_modes() {
-        assert_all_modes_match("tests/bare_mem.S", 42, b"MEMTEST\n");
+        assert_all_modes_match("tests/asm/mem.S", 42, b"MEMTEST\n");
     }
 
     #[test]
     fn arith_and_branches_match_all_modes() {
-        assert_all_modes_match("tests/bare_arith.S", 42, b"OK\n");
+        assert_all_modes_match("tests/asm/arith.S", 42, b"OK\n");
     }
 
     #[test]
     fn fp_matches_all_modes() {
-        assert_all_modes_match("tests/bare_fp.S", 42, b"");
+        assert_all_modes_match("tests/asm/fp.S", 42, b"");
+    }
+
+    #[test]
+    fn c_hello_matches_all_modes() {
+        assert_all_modes_match("tests/c/hello.c", 42, b"Hello RV64\n");
+    }
+
+    #[test]
+    fn c_arith_matches_all_modes() {
+        assert_all_modes_match("tests/c/arith.c", 42, b"OK\n");
+    }
+
+    #[test]
+    fn c_fp_matches_all_modes() {
+        assert_all_modes_match("tests/c/fp.c", 42, b"");
     }
 }
