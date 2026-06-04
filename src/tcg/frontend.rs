@@ -1301,6 +1301,520 @@ pub fn translate_block(
                 ctx.gen_fclass_d(td, t1);
                 ctx.gen_set_gpr_i64(rd, td);
             }
+            crate::decode::Instr::LrW {
+                rd,
+                rs1,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let tval = ctx.new_temp();
+                    ctx.gen_lr_w(tval, taddr);
+                    ctx.gen_set_gpr_i64(rd, tval);
+                }
+            }
+            crate::decode::Instr::LrD {
+                rd,
+                rs1,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let tval = ctx.new_temp();
+                    ctx.gen_lr_d(tval, taddr);
+                    ctx.gen_set_gpr_i64(rd, tval);
+                }
+            }
+            crate::decode::Instr::ScW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let tval = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tval, rs2);
+                    let tsucc = ctx.new_temp();
+                    ctx.gen_sc_w(tsucc, taddr, tval);
+                    ctx.gen_set_gpr_i64(rd, tsucc);
+                }
+            }
+            crate::decode::Instr::ScD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let tval = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tval, rs2);
+                    let tsucc = ctx.new_temp();
+                    ctx.gen_sc_d(tsucc, taddr, tval);
+                    ctx.gen_set_gpr_i64(rd, tsucc);
+                }
+            }
+            crate::decode::Instr::AmoSwapW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    ctx.gen_qemu_st32(tv, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoSwapD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    ctx.gen_qemu_st64(tv, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoAddW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_add_i64(tres, told, tv);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoAddD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_add_i64(tres, told, tv);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoXorW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_xor_i64(tres, told, tv);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoXorD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_xor_i64(tres, told, tv);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoAndW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_and_i64(tres, told, tv);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoAndD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_and_i64(tres, told, tv);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoOrW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, told, tv);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoOrD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, told, tv);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMinW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 2);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMinD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 2);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMaxW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_signed(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 2);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMaxD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 2);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMinuW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_unsigned(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 3);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMinuD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 3);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMaxuW {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld32_unsigned(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 3);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st32(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
+            crate::decode::Instr::AmoMaxuD {
+                rd,
+                rs1,
+                rs2,
+                _aq: _,
+                _rl: _,
+            } => {
+                if rd != 0 {
+                    let taddr = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(taddr, rs1);
+                    let told = ctx.new_temp();
+                    ctx.gen_qemu_ld64(told, taddr);
+                    let tv = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tv, rs2);
+                    let tcmp = ctx.new_temp();
+                    ctx.gen_set_cond_i64(tcmp, tv, told, 3);
+                    let tneg = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg, ctx.new_const(0), tcmp);
+                    let t1 = ctx.new_temp();
+                    ctx.gen_and_i64(t1, told, tneg);
+                    let tn = ctx.new_temp();
+                    ctx.gen_xor_i64(tn, tcmp, ctx.new_const(1));
+                    let tneg2 = ctx.new_temp();
+                    ctx.gen_sub_i64(tneg2, ctx.new_const(0), tn);
+                    let t2 = ctx.new_temp();
+                    ctx.gen_and_i64(t2, tv, tneg2);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, t1, t2);
+                    ctx.gen_qemu_st64(tres, taddr);
+                    ctx.gen_set_gpr_i64(rd, told);
+                }
+            }
             crate::decode::Instr::Unknown(_) => {
                 break;
             }

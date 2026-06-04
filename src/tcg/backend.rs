@@ -372,6 +372,7 @@ pub fn execute_tcg(
                     (&op.args[0], &op.args[1])
                 {
                     let addr = temps[*a as usize];
+                    cpu.clear_reservation_if_overlap(addr, 1);
                     let _ = mem.write_u8(addr, temps[*s as usize] as u8);
                 }
             }
@@ -380,6 +381,7 @@ pub fn execute_tcg(
                     (&op.args[0], &op.args[1])
                 {
                     let addr = temps[*a as usize];
+                    cpu.clear_reservation_if_overlap(addr, 2);
                     let _ = mem.write_u16(addr, temps[*s as usize] as u16);
                 }
             }
@@ -388,6 +390,7 @@ pub fn execute_tcg(
                     (&op.args[0], &op.args[1])
                 {
                     let addr = temps[*a as usize];
+                    cpu.clear_reservation_if_overlap(addr, 4);
                     let _ = mem.write_u32(addr, temps[*s as usize] as u32);
                 }
             }
@@ -396,6 +399,7 @@ pub fn execute_tcg(
                     (&op.args[0], &op.args[1])
                 {
                     let addr = temps[*a as usize];
+                    cpu.clear_reservation_if_overlap(addr, 8);
                     let _ = mem.write_u64(addr, temps[*s as usize]);
                 }
             }
@@ -456,6 +460,62 @@ pub fn execute_tcg(
                     && let Ok(Some(code)) = crate::syscall::handle_ecall(cpu, mem)
                 {
                     std::process::exit(code);
+                }
+            }
+            crate::tcg::op::TcgOpcode::LrW => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a), _) =
+                    (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let addr = temps[*a as usize];
+                    let val = mem.read_u32(addr).unwrap_or(0) as i32 as u64;
+                    temps[*d as usize] = val;
+                    cpu.set_reservation(addr, 4);
+                }
+            }
+            crate::tcg::op::TcgOpcode::LrD => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a), _) =
+                    (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let addr = temps[*a as usize];
+                    let val = mem.read_u64(addr).unwrap_or(0);
+                    temps[*d as usize] = val;
+                    cpu.set_reservation(addr, 8);
+                }
+            }
+            crate::tcg::op::TcgOpcode::ScW => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(a),
+                    crate::tcg::op::TcgArg::Temp(v),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let addr = temps[*a as usize];
+                    let val = temps[*v as usize] as u32;
+                    let succ = if cpu.check_and_clear_reservation(addr, 4) {
+                        let _ = mem.write_u32(addr, val);
+                        0
+                    } else {
+                        1
+                    };
+                    temps[*d as usize] = succ;
+                }
+            }
+            crate::tcg::op::TcgOpcode::ScD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(a),
+                    crate::tcg::op::TcgArg::Temp(v),
+                ) = (&op.args[0], &op.args[1], &op.args[2])
+                {
+                    let addr = temps[*a as usize];
+                    let val = temps[*v as usize];
+                    let succ = if cpu.check_and_clear_reservation(addr, 8) {
+                        let _ = mem.write_u64(addr, val);
+                        0
+                    } else {
+                        1
+                    };
+                    temps[*d as usize] = succ;
                 }
             }
             crate::tcg::op::TcgOpcode::GetFprI64 => {

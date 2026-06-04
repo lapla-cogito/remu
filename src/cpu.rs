@@ -1,10 +1,13 @@
+#[repr(C)]
 #[derive(Default)]
-#[expect(dead_code)]
 pub struct Cpu {
     pub gpr: [u64; 32],
     pub pc: u64,
     pub fpr: [u64; 32],
     pub fcsr: u32,
+    _pad: u32,
+    pub reservation_addr: u64,
+    pub reservation_size: u64,
 }
 
 impl Cpu {
@@ -54,5 +57,33 @@ impl Cpu {
     #[expect(dead_code)]
     pub fn frm(&self) -> u8 {
         ((self.fcsr >> 5) & 7) as u8
+    }
+
+    pub fn set_reservation(&mut self, addr: u64, size: u64) {
+        self.reservation_addr = addr;
+        self.reservation_size = size;
+    }
+
+    pub fn clear_reservation_if_overlap(&mut self, addr: u64, size: u64) {
+        if self.reservation_size != 0 {
+            let res_end = self.reservation_addr.wrapping_add(self.reservation_size);
+            let store_end = addr.wrapping_add(size);
+            if self.reservation_addr < store_end && addr < res_end {
+                self.reservation_addr = 0;
+                self.reservation_size = 0;
+            }
+        }
+    }
+
+    pub fn check_and_clear_reservation(&mut self, addr: u64, size: u64) -> bool {
+        if self.reservation_addr == addr && self.reservation_size == size {
+            self.reservation_addr = 0;
+            self.reservation_size = 0;
+            true
+        } else {
+            self.reservation_addr = 0;
+            self.reservation_size = 0;
+            false
+        }
     }
 }

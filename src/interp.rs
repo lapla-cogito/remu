@@ -369,22 +369,26 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::Sb { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 1);
             mem.write_u8(a, cpu.read_gpr(rs2) as u8)?;
             cpu.pc = npc;
         }
         crate::decode::Instr::Sh { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 2);
             mem.write_u16(a, cpu.read_gpr(rs2) as u16)?;
             cpu.pc = npc;
         }
         crate::decode::Instr::Sw { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 4);
             let val = cpu.read_gpr(rs2) as u32;
             mem.write_u32(a, val)?;
             cpu.pc = npc;
         }
         crate::decode::Instr::Sd { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 8);
             mem.write_u64(a, cpu.read_gpr(rs2))?;
             cpu.pc = npc;
         }
@@ -402,12 +406,14 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         }
         crate::decode::Instr::Fsw { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 4);
             let val = cpu.read_fpr_s(rs2);
             mem.write_u32(a, val)?;
             cpu.pc = npc;
         }
         crate::decode::Instr::Fsd { rs1, rs2, imm } => {
             let a = cpu.read_gpr(rs1).wrapping_add(imm as u64);
+            cpu.clear_reservation_if_overlap(a, 8);
             let val = cpu.read_fpr(rs2);
             mem.write_u64(a, val)?;
             cpu.pc = npc;
@@ -991,6 +997,361 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
                 };
             }
             cpu.write_gpr(rd, cls);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::LrW {
+            rd,
+            rs1,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            let v = mem.read_u32(a)? as i32 as u64;
+            cpu.write_gpr(rd, v);
+            cpu.set_reservation(a, 4);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::LrD {
+            rd,
+            rs1,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            let v = mem.read_u64(a)?;
+            cpu.write_gpr(rd, v);
+            cpu.set_reservation(a, 8);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::ScW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            let v = cpu.read_gpr(rs2) as u32;
+            let succ = if cpu.check_and_clear_reservation(a, 4) {
+                mem.write_u32(a, v)?;
+                0
+            } else {
+                1
+            };
+            cpu.write_gpr(rd, succ);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::ScD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            let v = cpu.read_gpr(rs2);
+            let succ = if cpu.check_and_clear_reservation(a, 8) {
+                mem.write_u64(a, v)?;
+                0
+            } else {
+                1
+            };
+            cpu.write_gpr(rd, succ);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoSwapW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let nv = cpu.read_gpr(rs2) as u32;
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoSwapD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let nv = cpu.read_gpr(rs2);
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoAddW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let addv = cpu.read_gpr(rs2) as u32;
+            let nv = (old as u32).wrapping_add(addv);
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoAddD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let nv = old.wrapping_add(cpu.read_gpr(rs2));
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoXorW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let nv = (old as u32) ^ (cpu.read_gpr(rs2) as u32);
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoXorD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let nv = old ^ cpu.read_gpr(rs2);
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoAndW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let nv = (old as u32) & (cpu.read_gpr(rs2) as u32);
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoAndD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let nv = old & cpu.read_gpr(rs2);
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoOrW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let nv = (old as u32) | (cpu.read_gpr(rs2) as u32);
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoOrD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let nv = old | cpu.read_gpr(rs2);
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMinW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let v = cpu.read_gpr(rs2) as i32 as u64;
+            let nv = if (old as i32) < (v as i32) {
+                old as u32
+            } else {
+                v as u32
+            };
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMinD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let v = cpu.read_gpr(rs2);
+            let nv = if (old as i64) < (v as i64) { old } else { v };
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMaxW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as i32 as u64;
+            let v = cpu.read_gpr(rs2) as i32 as u64;
+            let nv = if (old as i32) > (v as i32) {
+                old as u32
+            } else {
+                v as u32
+            };
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMaxD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let v = cpu.read_gpr(rs2);
+            let nv = if (old as i64) > (v as i64) { old } else { v };
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMinuW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as u64;
+            let v = cpu.read_gpr(rs2) as u32 as u64;
+            let nv = if (old as u32) < (v as u32) {
+                old as u32
+            } else {
+                v as u32
+            };
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMinuD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let v = cpu.read_gpr(rs2);
+            let nv = if old < v { old } else { v };
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMaxuW {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 4);
+            let old = mem.read_u32(a)? as u64;
+            let v = cpu.read_gpr(rs2) as u32 as u64;
+            let nv = if (old as u32) > (v as u32) {
+                old as u32
+            } else {
+                v as u32
+            };
+            mem.write_u32(a, nv)?;
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::AmoMaxuD {
+            rd,
+            rs1,
+            rs2,
+            _aq: _,
+            _rl: _,
+        } => {
+            let a = cpu.read_gpr(rs1);
+            cpu.clear_reservation_if_overlap(a, 8);
+            let old = mem.read_u64(a)?;
+            let v = cpu.read_gpr(rs2);
+            let nv = if old > v { old } else { v };
+            mem.write_u64(a, nv)?;
+            cpu.write_gpr(rd, old);
             cpu.pc = npc;
         }
         crate::decode::Instr::Ecall => {

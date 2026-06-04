@@ -1,4 +1,5 @@
 use dynasmrt::DynasmApi as _;
+use dynasmrt::DynasmLabelApi as _;
 
 pub fn compile(
     ctx: &crate::tcg::context::TcgContext,
@@ -410,6 +411,9 @@ pub fn compile(
                         ; mov rax, [rbp + off_s]
                         ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
+                        ; mov r11, [rbp - 8]
+                        ; mov QWORD [r11 + 528], 0
+                        ; mov QWORD [r11 + 536], 0
                         ; mov BYTE [rdx + rcx], al
                     );
                 }
@@ -424,6 +428,9 @@ pub fn compile(
                         ; mov rax, [rbp + off_s]
                         ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
+                        ; mov r11, [rbp - 8]
+                        ; mov QWORD [r11 + 528], 0
+                        ; mov QWORD [r11 + 536], 0
                         ; mov WORD [rdx + rcx], ax
                     );
                 }
@@ -438,6 +445,9 @@ pub fn compile(
                         ; mov rax, [rbp + off_s]
                         ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
+                        ; mov r11, [rbp - 8]
+                        ; mov QWORD [r11 + 528], 0
+                        ; mov QWORD [r11 + 536], 0
                         ; mov DWORD [rdx + rcx], eax
                     );
                 }
@@ -452,6 +462,9 @@ pub fn compile(
                         ; mov rax, [rbp + off_s]
                         ; mov rdx, [rbp - 24]
                         ; mov rcx, [rbp + off_a]
+                        ; mov r11, [rbp - 8]
+                        ; mov QWORD [r11 + 528], 0
+                        ; mov QWORD [r11 + 536], 0
                         ; mov [rdx + rcx], rax
                     );
                 }
@@ -707,6 +720,102 @@ pub fn compile(
                         ; mov rsi, [rbp-24]
                         ; mov rax, QWORD helper
                         ; call rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::LrW => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a), _) =
+                    (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov r10, [rbp + off_a]
+                        ; mov rdx, [rbp - 24]
+                        ; movsxd rax, DWORD [rdx + r10]
+                        ; mov [rbp + off_d], rax
+                        ; mov rdx, [rbp - 8]
+                        ; mov [rdx + 528], r10
+                        ; mov QWORD [rdx + 536], 4
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::LrD => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a), _) =
+                    (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov r10, [rbp + off_a]
+                        ; mov rdx, [rbp - 24]
+                        ; mov rax, [rdx + r10]
+                        ; mov [rbp + off_d], rax
+                        ; mov rdx, [rbp - 8]
+                        ; mov [rdx + 528], r10
+                        ; mov QWORD [rdx + 536], 8
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::ScW => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(a),
+                    crate::tcg::op::TcgArg::Temp(v),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    let off_v = temp_base - (v as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov r10, [rbp + off_a]
+                        ; mov rdx, [rbp - 8]
+                        ; mov rax, [rdx + 528]
+                        ; cmp r10, rax
+                        ; jne >fail
+                        ; mov rax, [rbp + off_v]
+                        ; mov r11, [rbp - 24]
+                        ; mov DWORD [r11 + r10], eax
+                        ; mov QWORD [rdx + 528], 0
+                        ; mov QWORD [rdx + 536], 0
+                        ; xor rax, rax
+                        ; mov [rbp + off_d], rax
+                        ; jmp >end
+                        ; fail:
+                        ; mov rax, 1
+                        ; mov [rbp + off_d], rax
+                        ; end:
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::ScD => {
+                if let (
+                    crate::tcg::op::TcgArg::Temp(d),
+                    crate::tcg::op::TcgArg::Temp(a),
+                    crate::tcg::op::TcgArg::Temp(v),
+                ) = (op.args[0], op.args[1], op.args[2])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    let off_a = temp_base - (a as i32) * 8;
+                    let off_v = temp_base - (v as i32) * 8;
+                    dynasmrt::dynasm!(asm
+                        ; mov r10, [rbp + off_a]
+                        ; mov rdx, [rbp - 8]
+                        ; mov rax, [rdx + 528]
+                        ; cmp r10, rax
+                        ; jne >fail
+                        ; mov rax, [rbp + off_v]
+                        ; mov r11, [rbp - 24]
+                        ; mov [r11 + r10], rax
+                        ; mov QWORD [rdx + 528], 0
+                        ; mov QWORD [rdx + 536], 0
+                        ; xor rax, rax
+                        ; mov [rbp + off_d], rax
+                        ; jmp >end
+                        ; fail:
+                        ; mov rax, 1
+                        ; mov [rbp + off_d], rax
+                        ; end:
                     );
                 }
             }

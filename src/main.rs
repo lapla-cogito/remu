@@ -203,4 +203,9 @@ mod tests {
     fn c_fp_matches_all_modes() {
         assert_all_modes_match("tests/c/fp.c", 42, b"");
     }
+
+    #[test]
+    fn atomic_matches_all_modes() {
+        assert_all_modes_match("tests/asm/atomic.S", 42, b"");
+    }
 }

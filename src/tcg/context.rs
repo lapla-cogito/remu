@@ -522,6 +522,60 @@ impl TcgContext {
         });
     }
 
+    pub fn gen_lr_w(&mut self, dst: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        args.push(crate::tcg::op::TcgArg::Const(0));
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::LrW,
+            args,
+        });
+    }
+
+    pub fn gen_lr_d(&mut self, dst: crate::tcg::op::TcgArg, addr: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        args.push(crate::tcg::op::TcgArg::Const(0));
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::LrD,
+            args,
+        });
+    }
+
+    pub fn gen_sc_w(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+        val: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        args.push(val);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::ScW,
+            args,
+        });
+    }
+
+    pub fn gen_sc_d(
+        &mut self,
+        dst: crate::tcg::op::TcgArg,
+        addr: crate::tcg::op::TcgArg,
+        val: crate::tcg::op::TcgArg,
+    ) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(addr);
+        args.push(val);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::ScD,
+            args,
+        });
+    }
+
     pub fn gen_get_gpr_i64(&mut self, dst: crate::tcg::op::TcgArg, reg: u8) {
         let mut args = smallvec::SmallVec::new();
         args.push(dst);
