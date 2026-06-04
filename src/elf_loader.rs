@@ -25,6 +25,17 @@ pub fn load_elf(
             }
         }
     }
+    cpu.brk = 0x200000u64;
+    let mut gp = 0u64;
+    for sym in &elf.syms {
+        if let Some(name) = elf.strtab.get_at(sym.st_name)
+            && name == "__global_pointer$"
+        {
+            gp = sym.st_value;
+            break;
+        }
+    }
+    cpu.write_gpr(3, gp);
     let stack_top = 0x0800_0000u64;
     let sp = setup_minimal_stack(mem, stack_top, &elf)?;
     cpu.write_gpr(2, sp);

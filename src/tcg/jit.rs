@@ -1025,14 +1025,161 @@ pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
             let fd = *gpr.add(10) as i32;
             let buf = *gpr.add(11) as usize;
             let len = *gpr.add(12) as usize;
-            if fd == 1 {
-                let slice = std::slice::from_raw_parts(mem.add(buf), len);
-                let _ = std::io::Write::write_all(&mut std::io::stdout(), slice);
+            if fd == 1 || fd == 2 {
+                let slice = ::std::slice::from_raw_parts(mem.add(buf), len);
+                let _ = ::std::io::Write::write_all(&mut ::std::io::stdout(), slice);
                 *gpr.add(10) = len as u64;
+            } else {
+                *gpr.add(10) = u64::MAX;
             }
-        } else if a7 == 93 {
+        } else if a7 == 93 || a7 == 94 {
             let code = *gpr.add(10) as i32;
-            std::process::exit(code);
+            ::std::process::exit(code);
+        } else if a7 == 63 {
+            let fd = *gpr.add(10) as i32;
+            if fd == 0 {
+                *gpr.add(10) = 0;
+            } else {
+                *gpr.add(10) = (-9i64) as u64;
+            }
+        } else if a7 == 80 {
+            let fd = *gpr.add(10) as i32;
+            let statbuf = *gpr.add(11) as usize;
+            if fd == 0 || fd == 1 || fd == 2 {
+                let mut st = [0u8; 128];
+                let mode: u32 = 0x2000 | 0o666;
+                let blksize: i32 = 1024;
+                st[8..16].copy_from_slice(&1u64.to_le_bytes());
+                st[16..20].copy_from_slice(&mode.to_le_bytes());
+                st[20..24].copy_from_slice(&1u32.to_le_bytes());
+                st[32..40].copy_from_slice(&0u64.to_le_bytes());
+                st[56..60].copy_from_slice(&blksize.to_le_bytes());
+                let dst = ::std::slice::from_raw_parts_mut(mem.add(statbuf), 128);
+                dst.copy_from_slice(&st);
+                *gpr.add(10) = 0;
+            } else {
+                *gpr.add(10) = (-9i64) as u64;
+            }
+        } else if a7 == 160 {
+            let buf = *gpr.add(10) as usize;
+            let mut uts = [0u8; 65 * 6];
+            let sys = b"Linux\0";
+            for (i, &b) in sys.iter().enumerate() {
+                uts[i] = b;
+            }
+            let rel = b"5.0.0\0";
+            for (i, &b) in rel.iter().enumerate() {
+                uts[65 + i] = b;
+            }
+            let mach = b"riscv64\0";
+            for (i, &b) in mach.iter().enumerate() {
+                uts[65 * 4 + i] = b;
+            }
+            let dst = ::std::slice::from_raw_parts_mut(mem.add(buf), uts.len());
+            dst.copy_from_slice(&uts);
+            *gpr.add(10) = 0;
+        } else if a7 == 214 {
+            let addr = *gpr.add(10);
+            let brk_ptr = (gpr as *mut u8).add(544) as *mut u64;
+            if addr == 0 {
+                *gpr.add(10) = *brk_ptr;
+            } else if addr <= (1u64 << 28) {
+                *brk_ptr = addr;
+                *gpr.add(10) = addr;
+            } else {
+                *gpr.add(10) = (-12i64) as u64;
+            }
+        } else if a7 == 29 {
+            let fd = *gpr.add(10) as i32;
+            let cmd = *gpr.add(11);
+            let arg = *gpr.add(12) as usize;
+            if fd == 0 || fd == 1 || fd == 2 {
+                if cmd == 0x5401 && arg != 0 {
+                    let t = [0u8; 60];
+                    let dst = ::std::slice::from_raw_parts_mut(mem.add(arg), 60);
+                    dst.copy_from_slice(&t);
+                }
+                *gpr.add(10) = 0;
+            } else {
+                *gpr.add(10) = (-25i64) as u64;
+            }
+        } else if a7 == 56 {
+            *gpr.add(10) = (-2i64) as u64;
+        } else if a7 == 57 {
+            let fd = *gpr.add(10) as i32;
+            if fd >= 0 {
+                *gpr.add(10) = 0;
+            } else {
+                *gpr.add(10) = (-9i64) as u64;
+            }
+        } else if a7 == 66 {
+            let fd = *gpr.add(10) as i32;
+            let iovp = *gpr.add(11) as usize;
+            let iovcnt = *gpr.add(12) as usize;
+            if fd == 1 || fd == 2 {
+                let mut total: u64 = 0;
+                for i in 0..iovcnt {
+                    let base_off = iovp + i * 16;
+                    let base = {
+                        let p = mem.add(base_off);
+                        let b0 = *p as u64;
+                        let b1 = *p.add(1) as u64;
+                        let b2 = *p.add(2) as u64;
+                        let b3 = *p.add(3) as u64;
+                        let b4 = *p.add(4) as u64;
+                        let b5 = *p.add(5) as u64;
+                        let b6 = *p.add(6) as u64;
+                        let b7 = *p.add(7) as u64;
+                        b0 | (b1 << 8)
+                            | (b2 << 16)
+                            | (b3 << 24)
+                            | (b4 << 32)
+                            | (b5 << 40)
+                            | (b6 << 48)
+                            | (b7 << 56)
+                    };
+                    let len_off = base_off + 8;
+                    let len = {
+                        let p = mem.add(len_off);
+                        let b0 = *p as u64;
+                        let b1 = *p.add(1) as u64;
+                        let b2 = *p.add(2) as u64;
+                        let b3 = *p.add(3) as u64;
+                        let b4 = *p.add(4) as u64;
+                        let b5 = *p.add(5) as u64;
+                        let b6 = *p.add(6) as u64;
+                        let b7 = *p.add(7) as u64;
+                        (b0 | (b1 << 8)
+                            | (b2 << 16)
+                            | (b3 << 24)
+                            | (b4 << 32)
+                            | (b5 << 40)
+                            | (b6 << 48)
+                            | (b7 << 56)) as usize
+                    };
+                    if len > 0 {
+                        let data = ::std::slice::from_raw_parts(mem.add(base as usize), len);
+                        let _ = ::std::io::Write::write_all(&mut ::std::io::stdout(), data);
+                        total += len as u64;
+                    }
+                }
+                *gpr.add(10) = total;
+            } else {
+                *gpr.add(10) = u64::MAX;
+            }
+        } else if a7 == 222 {
+            let addr = *gpr.add(10);
+            let len = *gpr.add(11);
+            let mut ret = addr;
+            if ret == 0 {
+                ret = 0x30000000u64;
+            }
+            if len > (1u64 << 28) {
+                ret = (-12i64) as u64;
+            }
+            *gpr.add(10) = ret;
+        } else {
+            *gpr.add(10) = (-38i64) as u64;
         }
     }
 }

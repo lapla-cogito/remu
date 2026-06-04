@@ -52,6 +52,8 @@ fn main() -> anyhow::Result<()> {
                         | crate::decode::Instr::Bge { .. }
                         | crate::decode::Instr::Bltu { .. }
                         | crate::decode::Instr::Bgeu { .. }
+                        | crate::decode::Instr::Jal { .. }
+                        | crate::decode::Instr::Jalr { .. }
                 )
             {
                 crate::interp::step(&mut cpu, &mut mem)?;
@@ -79,6 +81,8 @@ fn main() -> anyhow::Result<()> {
                         | crate::decode::Instr::Bge { .. }
                         | crate::decode::Instr::Bltu { .. }
                         | crate::decode::Instr::Bgeu { .. }
+                        | crate::decode::Instr::Jal { .. }
+                        | crate::decode::Instr::Jalr { .. }
                 )
             {
                 crate::interp::step(&mut cpu, &mut mem)?;
@@ -106,6 +110,8 @@ mod tests {
                     "-O1",
                     "-fomit-frame-pointer",
                     "-static",
+                    "-I",
+                    "tests/c",
                     "-o",
                     out_elf,
                     src_path,
@@ -207,5 +213,14 @@ mod tests {
     #[test]
     fn atomic_matches_all_modes() {
         assert_all_modes_match("tests/asm/atomic.S", 42, b"");
+    }
+
+    #[test]
+    fn c_syscall_matches_all_modes() {
+        assert_all_modes_match(
+            "tests/c/syscall.c",
+            42,
+            b"FSTAT\nWVOK\nWV\nIOCTL\nUN\nBRK\nSYSOK\n",
+        );
     }
 }

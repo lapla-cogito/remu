@@ -1538,9 +1538,8 @@ pub fn decode_compressed(raw: u16) -> Instr {
             let rdp = 8 + ((raw >> 2) & 7) as u8;
             let rs1p = 8 + ((raw >> 7) & 7) as u8;
             let mut imm = 0u64;
-            imm |= (((raw >> 6) & 1) as u64) << 3;
-            imm |= (((raw >> 10) & 7) as u64) << 4;
-            imm |= (((raw >> 5) & 1) as u64) << 7;
+            imm |= (((raw >> 10) & 7) as u64) << 3;
+            imm |= (((raw >> 5) & 3) as u64) << 6;
             Instr::Ld {
                 rd: rdp,
                 rs1: rs1p,
@@ -1566,9 +1565,8 @@ pub fn decode_compressed(raw: u16) -> Instr {
             let rs2p = 8 + ((raw >> 2) & 7) as u8;
             let rs1p = 8 + ((raw >> 7) & 7) as u8;
             let mut imm = 0u64;
-            imm |= (((raw >> 6) & 1) as u64) << 3;
-            imm |= (((raw >> 10) & 7) as u64) << 4;
-            imm |= (((raw >> 5) & 1) as u64) << 7;
+            imm |= (((raw >> 10) & 7) as u64) << 3;
+            imm |= (((raw >> 5) & 3) as u64) << 6;
             Instr::Sd {
                 rs1: rs1p,
                 rs2: rs2p,

@@ -8,12 +8,14 @@ pub struct Cpu {
     _pad: u32,
     pub reservation_addr: u64,
     pub reservation_size: u64,
+    pub brk: u64,
 }
 
 impl Cpu {
     pub fn new(entry: u64) -> Self {
         crate::cpu::Cpu {
             pc: entry,
+            brk: 0x200000u64,
             ..<Self as std::default::Default>::default()
         }
     }

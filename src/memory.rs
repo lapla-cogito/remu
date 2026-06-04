@@ -64,4 +64,19 @@ impl GuestMemory {
     pub fn mem_ptr(&mut self) -> *mut u8 {
         self.data.as_mut_ptr()
     }
+
+    pub fn read_bytes(&self, addr: u64, len: usize) -> anyhow::Result<Vec<u8>> {
+        let mut v = vec![0u8; len];
+        for (i, b) in v.iter_mut().enumerate() {
+            *b = self.read_u8(addr + i as u64)?;
+        }
+        Ok(v)
+    }
+
+    pub fn write_bytes(&mut self, addr: u64, data: &[u8]) -> anyhow::Result<()> {
+        for (i, &b) in data.iter().enumerate() {
+            self.write_u8(addr + i as u64, b)?;
+        }
+        Ok(())
+    }
 }
