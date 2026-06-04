@@ -1,0 +1,50 @@
+name: CI for remu
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Cache cargo
+        uses: ./.github/actions/cache_cargo
+      - name: Build
+        run: cargo build
+  fmt-and-lint:
+    needs: build-cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - name: Cache cargo
+        uses: ./.github/actions/cache_cargo
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+      - name: Run clippy
+        run: cargo clippy --tests -- -D warnings
+  test-suite:
+    needs: build-cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust-toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - name: Cache cargo
+        uses: ./.github/actions/cache_cargo
+      - run: sudo apt-get update && sudo apt-get -y install qemu-user gcc-riscv64-linux-gnu g++-riscv64-linux-gnu binutils-riscv64-linux-gnu
+      - name: Run tests
+        run: cargo build && cargo test

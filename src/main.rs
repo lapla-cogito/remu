@@ -10,10 +10,7 @@ type TcgTbCache = hashbrown::HashMap<u64, (crate::tcg::context::TcgContext, u64)
 type JitTbCache = hashbrown::HashMap<u64, (dynasmrt::ExecutableBuffer, u64)>;
 
 #[derive(clap::Parser)]
-#[command(
-    version,
-    about = "remu - RISC-V rv64gc emulator with TCG (interp/tcg-interp/jit modes)"
-)]
+#[command(version, about = "remu - RISC-V rv64gc emulator with TCG")]
 struct Args {
     #[arg(long, default_value = "interp")]
     mode: String,
