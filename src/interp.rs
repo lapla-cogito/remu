@@ -1,4 +1,3 @@
-#[expect(clippy::manual_checked_ops, clippy::if_same_then_else)]
 pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> anyhow::Result<()> {
     let (ilen, instr) = crate::decode::fetch_decode(mem, cpu.pc)?;
     let npc = cpu.pc.wrapping_add(ilen as u64);
@@ -50,11 +49,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         crate::decode::Instr::Divuw { rd, rs1, rs2 } => {
             let dividend = cpu.read_gpr(rs1) as u32;
             let divisor = cpu.read_gpr(rs2) as u32;
-            let v = if divisor == 0 {
-                u32::MAX as u64
-            } else {
-                (dividend / divisor) as u64
-            };
+            let v = dividend.checked_div(divisor).unwrap_or(u32::MAX) as u64;
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
@@ -182,11 +177,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
         crate::decode::Instr::Divu { rd, rs1, rs2 } => {
             let dividend = cpu.read_gpr(rs1);
             let divisor = cpu.read_gpr(rs2);
-            let v = if divisor == 0 {
-                u64::MAX
-            } else {
-                dividend / divisor
-            };
+            let v = dividend.checked_div(divisor).unwrap_or(u64::MAX);
             cpu.write_gpr(rd, v);
             cpu.pc = npc;
         }
@@ -828,9 +819,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             let b = f32::from_bits(cpu.read_fpr_s(rs2));
             let res = if a.is_nan() {
                 b
-            } else if b.is_nan() {
-                a
-            } else if a < b {
+            } else if b.is_nan() || a < b {
                 a
             } else {
                 b
@@ -843,9 +832,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             let b = f64::from_bits(cpu.read_fpr(rs2));
             let res = if a.is_nan() {
                 b
-            } else if b.is_nan() {
-                a
-            } else if a < b {
+            } else if b.is_nan() || a < b {
                 a
             } else {
                 b
@@ -858,9 +845,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             let b = f32::from_bits(cpu.read_fpr_s(rs2));
             let res = if a.is_nan() {
                 b
-            } else if b.is_nan() {
-                a
-            } else if a > b {
+            } else if b.is_nan() || a > b {
                 a
             } else {
                 b
@@ -873,9 +858,7 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             let b = f64::from_bits(cpu.read_fpr(rs2));
             let res = if a.is_nan() {
                 b
-            } else if b.is_nan() {
-                a
-            } else if a > b {
+            } else if b.is_nan() || a > b {
                 a
             } else {
                 b

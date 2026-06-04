@@ -1,4 +1,3 @@
-#[expect(clippy::manual_checked_ops, clippy::if_same_then_else)]
 pub fn execute_tcg(
     ctx: &crate::tcg::context::TcgContext,
     cpu: &mut crate::cpu::Cpu,
@@ -228,11 +227,7 @@ pub fn execute_tcg(
                 {
                     let dividend = temps[*s1 as usize];
                     let divisor = temps[*s2 as usize];
-                    temps[*d as usize] = if divisor == 0 {
-                        u64::MAX
-                    } else {
-                        dividend / divisor
-                    };
+                    temps[*d as usize] = dividend.checked_div(divisor).unwrap_or(u64::MAX);
                 }
             }
             crate::tcg::op::TcgOpcode::RemsI64 => {
@@ -262,11 +257,7 @@ pub fn execute_tcg(
                 {
                     let dividend = temps[*s1 as usize];
                     let divisor = temps[*s2 as usize];
-                    temps[*d as usize] = if divisor == 0 {
-                        dividend
-                    } else {
-                        dividend % divisor
-                    };
+                    temps[*d as usize] = dividend.checked_rem(divisor).unwrap_or(dividend);
                 }
             }
             crate::tcg::op::TcgOpcode::SetCondI64 => {
@@ -1080,9 +1071,7 @@ pub fn execute_tcg(
                     let b = f32::from_bits(temps[*s2 as usize] as u32);
                     let r = if a.is_nan() {
                         b
-                    } else if b.is_nan() {
-                        a
-                    } else if a < b {
+                    } else if b.is_nan() || a < b {
                         a
                     } else {
                         b
@@ -1101,9 +1090,7 @@ pub fn execute_tcg(
                     let b = f64::from_bits(temps[*s2 as usize]);
                     let r = if a.is_nan() {
                         b
-                    } else if b.is_nan() {
-                        a
-                    } else if a < b {
+                    } else if b.is_nan() || a < b {
                         a
                     } else {
                         b
@@ -1122,9 +1109,7 @@ pub fn execute_tcg(
                     let b = f32::from_bits(temps[*s2 as usize] as u32);
                     let r = if a.is_nan() {
                         b
-                    } else if b.is_nan() {
-                        a
-                    } else if a > b {
+                    } else if b.is_nan() || a > b {
                         a
                     } else {
                         b
@@ -1143,9 +1128,7 @@ pub fn execute_tcg(
                     let b = f64::from_bits(temps[*s2 as usize]);
                     let r = if a.is_nan() {
                         b
-                    } else if b.is_nan() {
-                        a
-                    } else if a > b {
+                    } else if b.is_nan() || a > b {
                         a
                     } else {
                         b
