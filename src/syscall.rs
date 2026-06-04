@@ -6,96 +6,6 @@ pub fn handle_ecall(
 ) -> anyhow::Result<Option<i32>> {
     let nr = cpu.read_gpr(17);
     match nr {
-        64 => {
-            // write
-            let fd = cpu.read_gpr(10) as i32;
-            let buf_addr = cpu.read_gpr(11);
-            let len = cpu.read_gpr(12) as usize;
-            if fd == 1 || fd == 2 {
-                let data = mem.read_bytes(buf_addr, len)?;
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                let written = handle.write(&data)?;
-                let _ = handle.flush();
-                cpu.write_gpr(10, written as u64);
-            } else {
-                cpu.write_gpr(10, u64::MAX);
-            }
-            Ok(None)
-        }
-        93 => {
-            // exit
-            let code = cpu.read_gpr(10) as i32;
-            Ok(Some(code))
-        }
-        94 => {
-            // exit_group
-            let code = cpu.read_gpr(10) as i32;
-            Ok(Some(code))
-        }
-        63 => {
-            // read
-            let fd = cpu.read_gpr(10) as i32;
-            if fd == 0 {
-                cpu.write_gpr(10, 0);
-            } else {
-                cpu.write_gpr(10, (-9i64) as u64);
-            }
-            Ok(None)
-        }
-        80 => {
-            // fstat
-            let fd = cpu.read_gpr(10) as i32;
-            let statbuf = cpu.read_gpr(11);
-            if fd == 0 || fd == 1 || fd == 2 {
-                let mut st = [0u8; 128];
-                let mode: u32 = 0x2000 | 0o666;
-                let blksize: i32 = 1024;
-                st[8..16].copy_from_slice(&1u64.to_le_bytes());
-                st[16..20].copy_from_slice(&mode.to_le_bytes());
-                st[20..24].copy_from_slice(&1u32.to_le_bytes());
-                st[32..40].copy_from_slice(&0u64.to_le_bytes());
-                st[56..60].copy_from_slice(&blksize.to_le_bytes());
-                mem.write_bytes(statbuf, &st)?;
-                cpu.write_gpr(10, 0);
-            } else {
-                cpu.write_gpr(10, (-9i64) as u64);
-            }
-            Ok(None)
-        }
-        160 => {
-            // uname
-            let buf = cpu.read_gpr(10);
-            let mut uts = [0u8; 65 * 6];
-            let sys = b"Linux\0";
-            for (i, &b) in sys.iter().enumerate() {
-                uts[i] = b;
-            }
-            let rel = b"5.0.0\0";
-            for (i, &b) in rel.iter().enumerate() {
-                uts[65 + i] = b;
-            }
-            let mach = b"riscv64\0";
-            for (i, &b) in mach.iter().enumerate() {
-                uts[65 * 4 + i] = b;
-            }
-            mem.write_bytes(buf, &uts)?;
-            cpu.write_gpr(10, 0);
-            Ok(None)
-        }
-        214 => {
-            // brk
-            let addr = cpu.read_gpr(10);
-            if addr == 0 {
-                cpu.write_gpr(10, cpu.brk);
-            } else if addr <= (1u64 << 28) {
-                cpu.brk = addr;
-                cpu.write_gpr(10, addr);
-            } else {
-                cpu.write_gpr(10, (-12i64) as u64);
-            }
-            Ok(None)
-        }
         29 => {
             // ioctl
             let fd = cpu.read_gpr(10) as i32;
@@ -127,6 +37,33 @@ pub fn handle_ecall(
             }
             Ok(None)
         }
+        63 => {
+            // read
+            let fd = cpu.read_gpr(10) as i32;
+            if fd == 0 {
+                cpu.write_gpr(10, 0);
+            } else {
+                cpu.write_gpr(10, (-9i64) as u64);
+            }
+            Ok(None)
+        }
+        64 => {
+            // write
+            let fd = cpu.read_gpr(10) as i32;
+            let buf_addr = cpu.read_gpr(11);
+            let len = cpu.read_gpr(12) as usize;
+            if fd == 1 || fd == 2 {
+                let data = mem.read_bytes(buf_addr, len)?;
+                let stdout = std::io::stdout();
+                let mut handle = stdout.lock();
+                let written = handle.write(&data)?;
+                let _ = handle.flush();
+                cpu.write_gpr(10, written as u64);
+            } else {
+                cpu.write_gpr(10, u64::MAX);
+            }
+            Ok(None)
+        }
         66 => {
             // writev
             let fd = cpu.read_gpr(10) as i32;
@@ -150,20 +87,6 @@ pub fn handle_ecall(
             } else {
                 cpu.write_gpr(10, u64::MAX);
             }
-            Ok(None)
-        }
-        222 => {
-            // mmap
-            let addr = cpu.read_gpr(10);
-            let len = cpu.read_gpr(11);
-            let mut ret = addr;
-            if ret == 0 {
-                ret = 0x30000000u64;
-            }
-            if len > (1u64 << 28) {
-                ret = (-12i64) as u64;
-            }
-            cpu.write_gpr(10, ret);
             Ok(None)
         }
         78 => {
@@ -191,6 +114,36 @@ pub fn handle_ecall(
             cpu.write_gpr(10, val as u64);
             Ok(None)
         }
+        80 => {
+            // fstat
+            let fd = cpu.read_gpr(10) as i32;
+            let statbuf = cpu.read_gpr(11);
+            if fd == 0 || fd == 1 || fd == 2 {
+                let mut st = [0u8; 128];
+                let mode: u32 = 0x2000 | 0o666;
+                let blksize: i32 = 1024;
+                st[8..16].copy_from_slice(&1u64.to_le_bytes());
+                st[16..20].copy_from_slice(&mode.to_le_bytes());
+                st[20..24].copy_from_slice(&1u32.to_le_bytes());
+                st[32..40].copy_from_slice(&0u64.to_le_bytes());
+                st[56..60].copy_from_slice(&blksize.to_le_bytes());
+                mem.write_bytes(statbuf, &st)?;
+                cpu.write_gpr(10, 0);
+            } else {
+                cpu.write_gpr(10, (-9i64) as u64);
+            }
+            Ok(None)
+        }
+        93 => {
+            // exit
+            let code = cpu.read_gpr(10) as i32;
+            Ok(Some(code))
+        }
+        94 => {
+            // exit_group
+            let code = cpu.read_gpr(10) as i32;
+            Ok(Some(code))
+        }
         96 => {
             // set_tid_address
             cpu.write_gpr(10, 1);
@@ -201,9 +154,56 @@ pub fn handle_ecall(
             cpu.write_gpr(10, 0);
             Ok(None)
         }
+        160 => {
+            // uname
+            let buf = cpu.read_gpr(10);
+            let mut uts = [0u8; 65 * 6];
+            let sys = b"Linux\0";
+            for (i, &b) in sys.iter().enumerate() {
+                uts[i] = b;
+            }
+            let rel = b"5.0.0\0";
+            for (i, &b) in rel.iter().enumerate() {
+                uts[65 + i] = b;
+            }
+            let mach = b"riscv64\0";
+            for (i, &b) in mach.iter().enumerate() {
+                uts[65 * 4 + i] = b;
+            }
+            mem.write_bytes(buf, &uts)?;
+            cpu.write_gpr(10, 0);
+            Ok(None)
+        }
         172 => {
             // getpid
             cpu.write_gpr(10, 1);
+            Ok(None)
+        }
+        214 => {
+            // brk
+            let addr = cpu.read_gpr(10);
+            if addr == 0 {
+                cpu.write_gpr(10, cpu.brk);
+            } else if addr <= (1u64 << 28) {
+                cpu.brk = addr;
+                cpu.write_gpr(10, addr);
+            } else {
+                cpu.write_gpr(10, (-12i64) as u64);
+            }
+            Ok(None)
+        }
+        222 => {
+            // mmap
+            let addr = cpu.read_gpr(10);
+            let len = cpu.read_gpr(11);
+            let mut ret = addr;
+            if ret == 0 {
+                ret = 0x30000000u64;
+            }
+            if len > (1u64 << 28) {
+                ret = (-12i64) as u64;
+            }
+            cpu.write_gpr(10, ret);
             Ok(None)
         }
         226 => {
