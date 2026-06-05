@@ -25,6 +25,19 @@ pub fn load_elf(
             }
         }
     }
+    // Ensure room for stack growth etc. beyond the loaded segments (some ELFs link at high addresses).
+    let mut max_va: u64 = 0;
+    for ph in &elf.program_headers {
+        if ph.p_type == goblin::elf::program_header::PT_LOAD {
+            let end = ph.p_vaddr + ph.p_memsz;
+            if end > max_va {
+                max_va = end;
+            }
+        }
+    }
+    if max_va > 0 {
+        mem.ensure(max_va + (1 << 17));
+    }
     cpu.brk = 0x200000u64;
     let mut gp = 0u64;
     for sym in &elf.syms {

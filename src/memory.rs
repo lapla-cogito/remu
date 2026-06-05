@@ -4,8 +4,18 @@ pub struct GuestMemory {
 
 impl GuestMemory {
     pub fn new() -> Self {
+        // Starts small and grows on demand to support guest programs using high addresses
+        // or large memory regions (common for some bare-metal and test ELFs).
         Self {
-            data: vec![0; 1 << 28],
+            data: ::std::vec::Vec::new(),
+        }
+    }
+
+    pub fn ensure(&mut self, addr: u64) {
+        let idx = addr as usize;
+        if idx >= self.data.len() {
+            let new_len = (idx + 1).next_power_of_two().max(self.data.len());
+            self.data.resize(new_len, 0);
         }
     }
 
@@ -14,7 +24,9 @@ impl GuestMemory {
         if i < self.data.len() {
             Ok(self.data[i])
         } else {
-            anyhow::bail!("read out of bounds: {:#x}", addr)
+            // Never-written addresses (including beyond current grow) read as 0.
+            // This preserves semantics for sparse/high-linked guests without forcing full prealloc.
+            Ok(0)
         }
     }
 
@@ -37,13 +49,10 @@ impl GuestMemory {
     }
 
     pub fn write_u8(&mut self, addr: u64, val: u8) -> anyhow::Result<()> {
+        self.ensure(addr);
         let i = addr as usize;
-        if i < self.data.len() {
-            self.data[i] = val;
-            Ok(())
-        } else {
-            anyhow::bail!("write out of bounds: {:#x}", addr)
-        }
+        self.data[i] = val;
+        Ok(())
     }
 
     pub fn write_u16(&mut self, addr: u64, val: u16) -> anyhow::Result<()> {

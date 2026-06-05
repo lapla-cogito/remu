@@ -99,6 +99,9 @@ pub enum TcgOpcode {
     FleD,
     FClassS,
     FClassD,
+    Mret,
+    GetCsr,
+    SetCsr,
 }
 
 #[derive(Clone, Copy, Debug)]

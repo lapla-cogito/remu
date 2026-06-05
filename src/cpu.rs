@@ -9,6 +9,9 @@ pub struct Cpu {
     pub reservation_addr: u64,
     pub reservation_size: u64,
     pub brk: u64,
+    // mepc is special-cased (MRET semantics read it directly); other CSRs are in the map.
+    pub mepc: u64,
+    pub csr: hashbrown::HashMap<u16, u64>,
 }
 
 impl Cpu {
@@ -86,6 +89,25 @@ impl Cpu {
             self.reservation_addr = 0;
             self.reservation_size = 0;
             false
+        }
+    }
+
+    pub fn read_csr(&self, csr: u16) -> u64 {
+        match csr {
+            0xf14 => 0, // mhartid: single hart 0 for tests
+            0x341 => self.mepc,
+            _ => *self.csr.get(&csr).unwrap_or(&0),
+        }
+    }
+
+    pub fn write_csr(&mut self, csr: u16, val: u64) {
+        match csr {
+            0x341 => {
+                self.mepc = val;
+            }
+            _ => {
+                self.csr.insert(csr, val);
+            }
         }
     }
 }

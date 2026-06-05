@@ -141,8 +141,9 @@ mod tests {
                 .output()
                 .expect("qemu")
         } else {
-            std::process::Command::new("./target/debug/remu")
-                .args(["--mode", mode, elf])
+            // Use cargo run so the bin is always built even if target/debug/remu is stale/missing (CI).
+            std::process::Command::new("cargo")
+                .args(["run", "-q", "--", "--mode", mode, elf])
                 .output()
                 .expect(mode)
         }

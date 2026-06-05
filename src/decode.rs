@@ -762,6 +762,38 @@ pub enum Instr {
         _aq: bool,
         _rl: bool,
     },
+    CsrRW {
+        rd: u8,
+        rs1: u8,
+        csr: u16,
+    },
+    CsrRS {
+        rd: u8,
+        rs1: u8,
+        csr: u16,
+    },
+    CsrRC {
+        rd: u8,
+        rs1: u8,
+        csr: u16,
+    },
+    CsrRWI {
+        rd: u8,
+        zimm: u8,
+        csr: u16,
+    },
+    CsrRSI {
+        rd: u8,
+        zimm: u8,
+        csr: u16,
+    },
+    CsrRCI {
+        rd: u8,
+        zimm: u8,
+        csr: u16,
+    },
+    Mret,
+    Fence,
     Ecall,
     Unknown(u32),
 }
@@ -928,6 +960,15 @@ pub fn decode(raw: u32) -> Instr {
                 2 => Instr::Sw { rs1, rs2, imm },
                 3 => Instr::Sd { rs1, rs2, imm },
                 _ => Instr::Unknown(raw),
+            }
+        }
+        0x0f => {
+            // MISC-MEM: FENCE and FENCE.I (nops in this model).
+            let funct3 = (raw >> 12) & 7;
+            if funct3 == 0 || (funct3 == 1 && (raw & 0xfff0707f) == 0x0000100f) {
+                Instr::Fence
+            } else {
+                Instr::Unknown(raw)
             }
         }
         0x2f => {
@@ -1338,10 +1379,36 @@ pub fn decode(raw: u32) -> Instr {
             }
         }
         0x73 => {
-            if raw == 0x00000073 {
-                Instr::Ecall
-            } else {
-                Instr::Unknown(raw)
+            let funct3 = (raw >> 12) & 7;
+            let rd = ((raw >> 7) & 0x1f) as u8;
+            let rs1 = ((raw >> 15) & 0x1f) as u8;
+            let csr = (raw >> 20) as u16;
+            match funct3 {
+                0 => {
+                    if raw == 0x00000073 {
+                        Instr::Ecall
+                    } else if raw == 0x30200073 {
+                        Instr::Mret
+                    } else {
+                        Instr::Unknown(raw)
+                    }
+                }
+                1 => Instr::CsrRW { rd, rs1, csr },
+                2 => Instr::CsrRS { rd, rs1, csr },
+                3 => Instr::CsrRC { rd, rs1, csr },
+                5 => {
+                    let zimm = rs1;
+                    Instr::CsrRWI { rd, zimm, csr }
+                }
+                6 => {
+                    let zimm = rs1;
+                    Instr::CsrRSI { rd, zimm, csr }
+                }
+                7 => {
+                    let zimm = rs1;
+                    Instr::CsrRCI { rd, zimm, csr }
+                }
+                _ => Instr::Unknown(raw),
             }
         }
         _ => Instr::Unknown(raw),

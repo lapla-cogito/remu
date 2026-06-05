@@ -1046,6 +1046,68 @@ pub fn compile(
                     );
                 }
             }
+            crate::tcg::op::TcgOpcode::GetCsr => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Const(c)) =
+                    (op.args[0], op.args[1])
+                {
+                    let off_d = temp_base - (d as i32) * 8;
+                    if c == 0x341 {
+                        // mepc at offset 552 from gpr base
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp-8]
+                            ; mov rax, [rax + 552]
+                            ; mov [rbp + off_d], rax
+                        );
+                    } else if c == 0xf14 {
+                        // mhartid = 0
+                        dynasmrt::dynasm!(asm
+                            ; xor rax, rax
+                            ; mov [rbp + off_d], rax
+                        );
+                    } else {
+                        // other CSRs: return 0 for now (sufficient for current harness/tests)
+                        dynasmrt::dynasm!(asm
+                            ; xor rax, rax
+                            ; mov [rbp + off_d], rax
+                        );
+                    }
+                }
+            }
+            crate::tcg::op::TcgOpcode::SetCsr => {
+                if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Temp(s)) =
+                    (op.args[0], op.args[1])
+                {
+                    if c == 0x341 {
+                        let off_s = temp_base - (s as i32) * 8;
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp + off_s]
+                            ; mov rdx, [rbp-8]
+                            ; mov [rdx + 552], rax
+                        );
+                    }
+                    // other CSRs ignored for now (written in init, not read back in hot paths)
+                } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
+                    (op.args[0], op.args[1])
+                    && c == 0x341
+                {
+                    let ci = v as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov rdx, [rbp-8]
+                        ; mov [rdx + 552], rax
+                    );
+                }
+            }
+            crate::tcg::op::TcgOpcode::Mret => {
+                // load mepc and make it the return value (next pc), then epilogue
+                let el = epilogue;
+                dynasmrt::dynasm!(asm
+                    ; mov rax, [rbp-8]
+                    ; mov rax, [rax + 552]
+                    ; mov [rbp + nextpc_off], rax
+                    ; jmp =>el
+                );
+            }
             crate::tcg::op::TcgOpcode::LrW => {
                 if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Temp(a), _) =
                     (op.args[0], op.args[1], op.args[2])

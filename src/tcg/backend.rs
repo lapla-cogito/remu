@@ -317,6 +317,30 @@ pub fn execute_tcg(
                     temps[*d as usize] = rv;
                 }
             }
+            crate::tcg::op::TcgOpcode::GetCsr => {
+                if let (crate::tcg::op::TcgArg::Temp(d), crate::tcg::op::TcgArg::Const(c)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    temps[*d as usize] = cpu.read_csr(*c as u16);
+                }
+            }
+            crate::tcg::op::TcgOpcode::SetCsr => {
+                if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Temp(s)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    let val = temps[*s as usize];
+                    cpu.write_csr(*c as u16, val);
+                } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
+                    (&op.args[0], &op.args[1])
+                {
+                    cpu.write_csr(*c as u16, *v);
+                }
+            }
+            crate::tcg::op::TcgOpcode::Mret => {
+                let target = cpu.read_csr(0x341); // mepc
+                next_pc = Some(target);
+                break;
+            }
             crate::tcg::op::TcgOpcode::SetGprI64 => {
                 if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Temp(s)) =
                     (&op.args[0], &op.args[1])

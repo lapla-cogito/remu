@@ -1836,6 +1836,81 @@ pub fn translate_block(
                     ctx.gen_set_gpr_i64(rd, told);
                 }
             }
+            crate::decode::Instr::CsrRW { rd, rs1, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                let tval = ctx.new_temp();
+                ctx.gen_get_gpr_i64(tval, rs1);
+                ctx.gen_set_csr(csr, tval);
+            }
+            crate::decode::Instr::CsrRS { rd, rs1, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                if rs1 != 0 {
+                    let tval = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tval, rs1);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, told, tval);
+                    ctx.gen_set_csr(csr, tres);
+                }
+            }
+            crate::decode::Instr::CsrRC { rd, rs1, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                if rs1 != 0 {
+                    let tval = ctx.new_temp();
+                    ctx.gen_get_gpr_i64(tval, rs1);
+                    let tnot = ctx.new_temp();
+                    ctx.gen_xor_i64(tnot, tval, ctx.new_const(u64::MAX));
+                    let tres = ctx.new_temp();
+                    ctx.gen_and_i64(tres, told, tnot);
+                    ctx.gen_set_csr(csr, tres);
+                }
+            }
+            crate::decode::Instr::CsrRWI { rd, zimm, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                let tval = ctx.new_const(zimm as u64);
+                if zimm != 0 {
+                    ctx.gen_set_csr(csr, tval);
+                }
+            }
+            crate::decode::Instr::CsrRSI { rd, zimm, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                if zimm != 0 {
+                    let tval = ctx.new_const(zimm as u64);
+                    let tres = ctx.new_temp();
+                    ctx.gen_or_i64(tres, told, tval);
+                    ctx.gen_set_csr(csr, tres);
+                }
+            }
+            crate::decode::Instr::CsrRCI { rd, zimm, csr } => {
+                let told = ctx.new_temp();
+                ctx.gen_get_csr(told, csr);
+                ctx.gen_set_gpr_i64(rd, told);
+                if zimm != 0 {
+                    let tval = ctx.new_const(zimm as u64);
+                    let tnot = ctx.new_temp();
+                    ctx.gen_xor_i64(tnot, tval, ctx.new_const(u64::MAX));
+                    let tres = ctx.new_temp();
+                    ctx.gen_and_i64(tres, told, tnot);
+                    ctx.gen_set_csr(csr, tres);
+                }
+            }
+            crate::decode::Instr::Mret => {
+                ctx.gen_mret();
+                // Mret changes pc to mepc at runtime; do not continue sequentially.
+                break;
+            }
+            crate::decode::Instr::Fence => {
+                // nop; fallthrough to the common pc = after_pc below
+            }
             crate::decode::Instr::Unknown(_) => {
                 break;
             }

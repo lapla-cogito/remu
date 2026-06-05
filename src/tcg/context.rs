@@ -1381,4 +1381,31 @@ impl TcgContext {
             args,
         });
     }
+
+    pub fn gen_get_csr(&mut self, dst: crate::tcg::op::TcgArg, csr: u16) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(dst);
+        args.push(self.new_const(csr as u64));
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::GetCsr,
+            args,
+        });
+    }
+
+    pub fn gen_set_csr(&mut self, csr: u16, src: crate::tcg::op::TcgArg) {
+        let mut args = smallvec::SmallVec::new();
+        args.push(self.new_const(csr as u64));
+        args.push(src);
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::SetCsr,
+            args,
+        });
+    }
+
+    pub fn gen_mret(&mut self) {
+        self.ops.push(crate::tcg::op::TcgOp {
+            opc: crate::tcg::op::TcgOpcode::Mret,
+            args: smallvec::SmallVec::new(),
+        });
+    }
 }

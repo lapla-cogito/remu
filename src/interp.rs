@@ -1343,6 +1343,54 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             }
             cpu.pc = npc;
         }
+        crate::decode::Instr::Mret => {
+            cpu.pc = cpu.mepc;
+        }
+        crate::decode::Instr::Fence => {
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRW { rd, rs1, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = cpu.read_gpr(rs1);
+            cpu.write_csr(csr, val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRS { rd, rs1, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = cpu.read_gpr(rs1);
+            cpu.write_csr(csr, old | val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRC { rd, rs1, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = cpu.read_gpr(rs1);
+            cpu.write_csr(csr, old & !val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRWI { rd, zimm, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = zimm as u64;
+            cpu.write_csr(csr, val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRSI { rd, zimm, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = zimm as u64;
+            cpu.write_csr(csr, old | val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
+        crate::decode::Instr::CsrRCI { rd, zimm, csr } => {
+            let old = cpu.read_csr(csr);
+            let val = zimm as u64;
+            cpu.write_csr(csr, old & !val);
+            cpu.write_gpr(rd, old);
+            cpu.pc = npc;
+        }
         crate::decode::Instr::Unknown(raw) => {
             anyhow::bail!("unknown instruction {:#x} at pc {:#x}", raw, cpu.pc);
         }
