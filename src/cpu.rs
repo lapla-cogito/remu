@@ -16,6 +16,13 @@ pub struct Cpu {
     pub medeleg: u64,
     pub mideleg: u64,
     pub csr: hashbrown::HashMap<u16, u64>,
+    pub sepc: u64,
+    pub mtvec: u64,
+    pub stvec: u64,
+    pub mcause: u64,
+    pub scause: u64,
+    pub mtval: u64,
+    pub stval: u64,
 }
 
 impl Cpu {
@@ -29,6 +36,13 @@ impl Cpu {
             satp: 0,
             medeleg: 0,
             mideleg: 0,
+            sepc: 0,
+            mtvec: 0,
+            stvec: 0,
+            mcause: 0,
+            scause: 0,
+            mtval: 0,
+            stval: 0,
             ..<Self as std::default::Default>::default()
         }
     }
@@ -105,17 +119,36 @@ impl Cpu {
     pub fn read_csr(&self, csr: u16) -> u64 {
         match csr {
             0xf14 => 0,
+            0x105 => self.stvec,
+            0x141 => self.sepc,
+            0x142 => self.scause,
+            0x143 => self.stval,
             0x180 => self.satp,
             0x300 => self.mstatus,
             0x302 => self.medeleg,
             0x303 => self.mideleg,
+            0x305 => self.mtvec,
             0x341 => self.mepc,
+            0x342 => self.mcause,
+            0x343 => self.mtval,
             _ => *self.csr.get(&csr).unwrap_or(&0),
         }
     }
 
     pub fn write_csr(&mut self, csr: u16, val: u64) {
         match csr {
+            0x105 => {
+                self.stvec = val;
+            }
+            0x141 => {
+                self.sepc = val;
+            }
+            0x142 => {
+                self.scause = val;
+            }
+            0x143 => {
+                self.stval = val;
+            }
             0x180 => {
                 self.satp = val;
             }
@@ -128,8 +161,17 @@ impl Cpu {
             0x303 => {
                 self.mideleg = val;
             }
+            0x305 => {
+                self.mtvec = val;
+            }
             0x341 => {
                 self.mepc = val;
+            }
+            0x342 => {
+                self.mcause = val;
+            }
+            0x343 => {
+                self.mtval = val;
             }
             _ => {
                 self.csr.insert(csr, val);
