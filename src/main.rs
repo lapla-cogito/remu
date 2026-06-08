@@ -237,6 +237,16 @@ mod tests {
     }
 
     #[test]
+    fn ecall_trap_matches_emulator_modes() {
+        assert_modes_match(
+            "tests/asm/trap_ecall.S",
+            &["interp", "tcg-interp", "jit"],
+            42,
+            b"",
+        );
+    }
+
+    #[test]
     fn pie_hello_matches_all_modes() {
         let src = "tests/c/hello.c";
         let out_elf = "/tmp/pie_hello";

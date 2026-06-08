@@ -503,9 +503,16 @@ pub fn execute_tcg(
             crate::tcg::op::TcgOpcode::Call => {
                 if let (crate::tcg::op::TcgArg::Const(h), _) = (&op.args[0], &op.args[1])
                     && *h == 0
-                    && let Ok(Some(code)) = crate::syscall::handle_ecall(cpu, mem)
                 {
-                    std::process::exit(code);
+                    if cpu.read_csr(0x305) == 0 {
+                        if let Ok(Some(code)) = crate::syscall::handle_ecall(cpu, mem) {
+                            std::process::exit(code);
+                        }
+                    } else {
+                        let cause = 8u64 + cpu.priv_mode;
+                        cpu.take_exception(cause, 0);
+                        return Some(cpu.pc);
+                    }
                 }
             }
             crate::tcg::op::TcgOpcode::LrW => {

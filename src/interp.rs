@@ -1338,10 +1338,20 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.pc = npc;
         }
         crate::decode::Instr::Ecall => {
-            if let Some(code) = crate::syscall::handle_ecall(cpu, mem)? {
-                std::process::exit(code);
+            // For bare user programs that never install mtvec (common in our tests),
+            // keep the old direct syscall emulation so existing tests continue to pass.
+            // Once a kernel sets mtvec (or we are in S/M mode), deliver as real exception.
+            if cpu.read_csr(0x305) == 0 {
+                // No trap vector installed yet: emulate legacy syscall ABI for our
+                // bare-metal test programs (they run in M or U and do direct ecall).
+                if let Some(code) = crate::syscall::handle_ecall(cpu, mem)? {
+                    std::process::exit(code);
+                }
+                cpu.pc = npc;
+            } else {
+                let cause = 8u64 + cpu.priv_mode;
+                cpu.take_exception(cause, 0);
             }
-            cpu.pc = npc;
         }
         crate::decode::Instr::Mret => {
             let mpp = (cpu.mstatus >> 11) & 3;

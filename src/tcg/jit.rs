@@ -45,6 +45,7 @@ pub fn compile(
             crate::tcg::op::TcgOpcode::SetGprI64 => {
                 if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Temp(s)) =
                     (op.args[0], op.args[1])
+                    && r != 0
                 {
                     let off = temp_base - (s as i32) * 8;
                     let reg_off = (r as i32) * 8;
@@ -55,6 +56,7 @@ pub fn compile(
                     );
                 } else if let (crate::tcg::op::TcgArg::Const(r), crate::tcg::op::TcgArg::Const(c)) =
                     (op.args[0], op.args[1])
+                    && r != 0
                 {
                     let reg_off = (r as i32) * 8;
                     let ci = c as i64;
@@ -1044,6 +1046,14 @@ pub fn compile(
                         ; mov rax, QWORD helper
                         ; call rax
                     );
+                    // Helper returns 0 for legacy (keep TB default nextpc slot = after ecall)
+                    // or the handler pc for trap (override slot so epi returns it).
+                    dynasmrt::dynasm!(asm
+                        ; test rax, rax
+                        ; jz >use_default
+                        ; mov [rbp + nextpc_off], rax
+                        ; use_default:
+                    );
                 }
             }
             crate::tcg::op::TcgOpcode::GetCsr => {
@@ -1061,6 +1071,18 @@ pub fn compile(
                         dynasmrt::dynasm!(asm
                             ; mov rax, [rbp-8]
                             ; mov rax, [rax + 560]
+                            ; mov [rbp + off_d], rax
+                        );
+                    } else if c == 0x305 {
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp-8]
+                            ; mov rax, [rax + 648]
+                            ; mov [rbp + off_d], rax
+                        );
+                    } else if c == 0x105 {
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp-8]
+                            ; mov rax, [rax + 656]
                             ; mov [rbp + off_d], rax
                         );
                     } else if c == 0xf14 {
@@ -1096,6 +1118,20 @@ pub fn compile(
                             ; mov rdx, [rbp-8]
                             ; mov [rdx + 560], rax
                         );
+                    } else if c == 0x305 {
+                        let off_s = temp_base - (s as i32) * 8;
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp + off_s]
+                            ; mov rdx, [rbp-8]
+                            ; mov [rdx + 648], rax
+                        );
+                    } else if c == 0x105 {
+                        let off_s = temp_base - (s as i32) * 8;
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp + off_s]
+                            ; mov rdx, [rbp-8]
+                            ; mov [rdx + 656], rax
+                        );
                     }
                     // other CSRs ignored for now (written in init, not read back in hot paths)
                 } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
@@ -1117,6 +1153,26 @@ pub fn compile(
                         ; mov rax, QWORD ci
                         ; mov rdx, [rbp-8]
                         ; mov [rdx + 560], rax
+                    );
+                } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
+                    (op.args[0], op.args[1])
+                    && c == 0x305
+                {
+                    let ci = v as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov rdx, [rbp-8]
+                        ; mov [rdx + 648], rax
+                    );
+                } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
+                    (op.args[0], op.args[1])
+                    && c == 0x105
+                {
+                    let ci = v as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov rdx, [rbp-8]
+                        ; mov [rdx + 656], rax
                     );
                 }
             }
@@ -1448,219 +1504,230 @@ pub fn compile(
     Ok(buf)
 }
 
-pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) {
+pub extern "C" fn helper_syscall(gpr: *mut u64, mem: *mut u8) -> u64 {
     unsafe {
-        let a7 = *gpr.add(17);
-        if a7 == 64 {
-            let fd = *gpr.add(10) as i32;
-            let buf = *gpr.add(11) as usize;
-            let len = *gpr.add(12) as usize;
-            if fd == 1 || fd == 2 {
-                let slice = std::slice::from_raw_parts(mem.add(buf), len);
-                let _ = std::io::stdout().write_all(slice);
+        let cpu = &mut *(gpr as *mut crate::cpu::Cpu);
+        if cpu.read_csr(0x305) == 0 {
+            // legacy mtvec==0: emulate direct syscall for bare-metal tests.
+            // Do not touch cpu.pc here; the TB default nextpc slot (set at compile to after
+            // this ecall) will be used for continuation on non-exit. Exit arms abort.
+            let a7 = *gpr.add(17);
+            if a7 == 64 {
+                let fd = *gpr.add(10) as i32;
+                let buf = *gpr.add(11) as usize;
+                let len = *gpr.add(12) as usize;
+                if fd == 1 || fd == 2 {
+                    let slice = std::slice::from_raw_parts(mem.add(buf), len);
+                    let _ = std::io::stdout().write_all(slice);
+                    *gpr.add(10) = len as u64;
+                } else {
+                    *gpr.add(10) = u64::MAX;
+                }
+            } else if a7 == 93 || a7 == 94 {
+                let code = *gpr.add(10) as i32;
+                std::process::exit(code);
+            } else if a7 == 63 {
+                let fd = *gpr.add(10) as i32;
+                if fd == 0 {
+                    *gpr.add(10) = 0;
+                } else {
+                    *gpr.add(10) = (-9i64) as u64;
+                }
+            } else if a7 == 80 {
+                let fd = *gpr.add(10) as i32;
+                let statbuf = *gpr.add(11) as usize;
+                if fd == 0 || fd == 1 || fd == 2 {
+                    let mut st = [0u8; 128];
+                    let mode: u32 = 0x2000 | 0o666;
+                    let blksize: i32 = 1024;
+                    st[8..16].copy_from_slice(&1u64.to_le_bytes());
+                    st[16..20].copy_from_slice(&mode.to_le_bytes());
+                    st[20..24].copy_from_slice(&1u32.to_le_bytes());
+                    st[32..40].copy_from_slice(&0u64.to_le_bytes());
+                    st[56..60].copy_from_slice(&blksize.to_le_bytes());
+                    let dst = std::slice::from_raw_parts_mut(mem.add(statbuf), 128);
+                    dst.copy_from_slice(&st);
+                    *gpr.add(10) = 0;
+                } else {
+                    *gpr.add(10) = (-9i64) as u64;
+                }
+            } else if a7 == 160 {
+                let buf = *gpr.add(10) as usize;
+                let mut uts = [0u8; 65 * 6];
+                let sys = b"Linux\0";
+                for (i, &b) in sys.iter().enumerate() {
+                    uts[i] = b;
+                }
+                let rel = b"5.0.0\0";
+                for (i, &b) in rel.iter().enumerate() {
+                    uts[65 + i] = b;
+                }
+                let mach = b"riscv64\0";
+                for (i, &b) in mach.iter().enumerate() {
+                    uts[65 * 4 + i] = b;
+                }
+                let dst = std::slice::from_raw_parts_mut(mem.add(buf), uts.len());
+                dst.copy_from_slice(&uts);
+                *gpr.add(10) = 0;
+            } else if a7 == 214 {
+                let addr = *gpr.add(10);
+                let brk_ptr = (gpr as *mut u8).add(544) as *mut u64;
+                if addr == 0 {
+                    *gpr.add(10) = *brk_ptr;
+                } else if addr <= (1u64 << 28) {
+                    *brk_ptr = addr;
+                    *gpr.add(10) = addr;
+                } else {
+                    *gpr.add(10) = (-12i64) as u64;
+                }
+            } else if a7 == 29 {
+                let fd = *gpr.add(10) as i32;
+                let cmd = *gpr.add(11);
+                let arg = *gpr.add(12) as usize;
+                if fd == 0 || fd == 1 || fd == 2 {
+                    if cmd == 0x5401 && arg != 0 {
+                        let t = [0u8; 60];
+                        let dst = std::slice::from_raw_parts_mut(mem.add(arg), 60);
+                        dst.copy_from_slice(&t);
+                    }
+                    *gpr.add(10) = 0;
+                } else {
+                    *gpr.add(10) = (-25i64) as u64;
+                }
+            } else if a7 == 56 {
+                *gpr.add(10) = (-2i64) as u64;
+            } else if a7 == 57 {
+                let fd = *gpr.add(10) as i32;
+                if fd >= 0 {
+                    *gpr.add(10) = 0;
+                } else {
+                    *gpr.add(10) = (-9i64) as u64;
+                }
+            } else if a7 == 66 {
+                let fd = *gpr.add(10) as i32;
+                let iovp = *gpr.add(11) as usize;
+                let iovcnt = *gpr.add(12) as usize;
+                if fd == 1 || fd == 2 {
+                    let mut total: u64 = 0;
+                    for i in 0..iovcnt {
+                        let base_off = iovp + i * 16;
+                        let base = {
+                            let p = mem.add(base_off);
+                            let b0 = *p as u64;
+                            let b1 = *p.add(1) as u64;
+                            let b2 = *p.add(2) as u64;
+                            let b3 = *p.add(3) as u64;
+                            let b4 = *p.add(4) as u64;
+                            let b5 = *p.add(5) as u64;
+                            let b6 = *p.add(6) as u64;
+                            let b7 = *p.add(7) as u64;
+                            b0 | (b1 << 8)
+                                | (b2 << 16)
+                                | (b3 << 24)
+                                | (b4 << 32)
+                                | (b5 << 40)
+                                | (b6 << 48)
+                                | (b7 << 56)
+                        };
+                        let len_off = base_off + 8;
+                        let len = {
+                            let p = mem.add(len_off);
+                            let b0 = *p as u64;
+                            let b1 = *p.add(1) as u64;
+                            let b2 = *p.add(2) as u64;
+                            let b3 = *p.add(3) as u64;
+                            let b4 = *p.add(4) as u64;
+                            let b5 = *p.add(5) as u64;
+                            let b6 = *p.add(6) as u64;
+                            let b7 = *p.add(7) as u64;
+                            (b0 | (b1 << 8)
+                                | (b2 << 16)
+                                | (b3 << 24)
+                                | (b4 << 32)
+                                | (b5 << 40)
+                                | (b6 << 48)
+                                | (b7 << 56)) as usize
+                        };
+                        if len > 0 {
+                            let data = std::slice::from_raw_parts(mem.add(base as usize), len);
+                            let _ = std::io::stdout().write_all(data);
+                            total += len as u64;
+                        }
+                    }
+                    *gpr.add(10) = total;
+                } else {
+                    *gpr.add(10) = u64::MAX;
+                }
+            } else if a7 == 222 {
+                let addr = *gpr.add(10);
+                let len = *gpr.add(11);
+                let mut ret = addr;
+                if ret == 0 {
+                    ret = 0x30000000u64;
+                }
+                if len > (1u64 << 28) {
+                    ret = (-12i64) as u64;
+                }
+                *gpr.add(10) = ret;
+            } else if a7 == 78 {
+                // readlinkat (raw)
+                let path_addr = *gpr.add(11);
+                let buf = *gpr.add(12) as usize;
+                let bufsiz = *gpr.add(13) as usize;
+                let mut path = vec![];
+                for i in 0..256 {
+                    let b = *mem.add(path_addr as usize + i);
+                    if b == 0 {
+                        break;
+                    }
+                    path.push(b);
+                }
+                let pstr = std::string::String::from_utf8_lossy(&path);
+                let val = if pstr == "/proc/self/exe" {
+                    let fake = b"remu";
+                    let n = std::cmp::min(fake.len(), bufsiz);
+                    let dst = std::slice::from_raw_parts_mut(mem.add(buf), n);
+                    dst.copy_from_slice(&fake[..n]);
+                    n as i64
+                } else {
+                    -2
+                };
+                *gpr.add(10) = val as u64;
+            } else if a7 == 96 {
+                *gpr.add(10) = 1;
+            } else if a7 == 99 {
+                *gpr.add(10) = 0;
+            } else if a7 == 172 {
+                *gpr.add(10) = 1;
+            } else if a7 == 226 {
+                *gpr.add(10) = 0;
+            } else if a7 == 261 {
+                let oldp = *gpr.add(13) as usize;
+                if oldp != 0 {
+                    let mut r = [0u8; 16];
+                    let cur: u64 = 8 * 1024 * 1024;
+                    let max: u64 = u64::MAX;
+                    r[0..8].copy_from_slice(&cur.to_le_bytes());
+                    r[8..16].copy_from_slice(&max.to_le_bytes());
+                    let dst = std::slice::from_raw_parts_mut(mem.add(oldp), 16);
+                    dst.copy_from_slice(&r);
+                }
+                *gpr.add(10) = 0;
+            } else if a7 == 278 {
+                let buf = *gpr.add(10) as usize;
+                let len = *gpr.add(11) as usize;
+                for i in 0..len {
+                    *mem.add(buf + i) = (0xA5u8).wrapping_add(i as u8);
+                }
                 *gpr.add(10) = len as u64;
             } else {
-                *gpr.add(10) = u64::MAX;
+                *gpr.add(10) = (-38i64) as u64;
             }
-        } else if a7 == 93 || a7 == 94 {
-            let code = *gpr.add(10) as i32;
-            std::process::exit(code);
-        } else if a7 == 63 {
-            let fd = *gpr.add(10) as i32;
-            if fd == 0 {
-                *gpr.add(10) = 0;
-            } else {
-                *gpr.add(10) = (-9i64) as u64;
-            }
-        } else if a7 == 80 {
-            let fd = *gpr.add(10) as i32;
-            let statbuf = *gpr.add(11) as usize;
-            if fd == 0 || fd == 1 || fd == 2 {
-                let mut st = [0u8; 128];
-                let mode: u32 = 0x2000 | 0o666;
-                let blksize: i32 = 1024;
-                st[8..16].copy_from_slice(&1u64.to_le_bytes());
-                st[16..20].copy_from_slice(&mode.to_le_bytes());
-                st[20..24].copy_from_slice(&1u32.to_le_bytes());
-                st[32..40].copy_from_slice(&0u64.to_le_bytes());
-                st[56..60].copy_from_slice(&blksize.to_le_bytes());
-                let dst = std::slice::from_raw_parts_mut(mem.add(statbuf), 128);
-                dst.copy_from_slice(&st);
-                *gpr.add(10) = 0;
-            } else {
-                *gpr.add(10) = (-9i64) as u64;
-            }
-        } else if a7 == 160 {
-            let buf = *gpr.add(10) as usize;
-            let mut uts = [0u8; 65 * 6];
-            let sys = b"Linux\0";
-            for (i, &b) in sys.iter().enumerate() {
-                uts[i] = b;
-            }
-            let rel = b"5.0.0\0";
-            for (i, &b) in rel.iter().enumerate() {
-                uts[65 + i] = b;
-            }
-            let mach = b"riscv64\0";
-            for (i, &b) in mach.iter().enumerate() {
-                uts[65 * 4 + i] = b;
-            }
-            let dst = std::slice::from_raw_parts_mut(mem.add(buf), uts.len());
-            dst.copy_from_slice(&uts);
-            *gpr.add(10) = 0;
-        } else if a7 == 214 {
-            let addr = *gpr.add(10);
-            let brk_ptr = (gpr as *mut u8).add(544) as *mut u64;
-            if addr == 0 {
-                *gpr.add(10) = *brk_ptr;
-            } else if addr <= (1u64 << 28) {
-                *brk_ptr = addr;
-                *gpr.add(10) = addr;
-            } else {
-                *gpr.add(10) = (-12i64) as u64;
-            }
-        } else if a7 == 29 {
-            let fd = *gpr.add(10) as i32;
-            let cmd = *gpr.add(11);
-            let arg = *gpr.add(12) as usize;
-            if fd == 0 || fd == 1 || fd == 2 {
-                if cmd == 0x5401 && arg != 0 {
-                    let t = [0u8; 60];
-                    let dst = std::slice::from_raw_parts_mut(mem.add(arg), 60);
-                    dst.copy_from_slice(&t);
-                }
-                *gpr.add(10) = 0;
-            } else {
-                *gpr.add(10) = (-25i64) as u64;
-            }
-        } else if a7 == 56 {
-            *gpr.add(10) = (-2i64) as u64;
-        } else if a7 == 57 {
-            let fd = *gpr.add(10) as i32;
-            if fd >= 0 {
-                *gpr.add(10) = 0;
-            } else {
-                *gpr.add(10) = (-9i64) as u64;
-            }
-        } else if a7 == 66 {
-            let fd = *gpr.add(10) as i32;
-            let iovp = *gpr.add(11) as usize;
-            let iovcnt = *gpr.add(12) as usize;
-            if fd == 1 || fd == 2 {
-                let mut total: u64 = 0;
-                for i in 0..iovcnt {
-                    let base_off = iovp + i * 16;
-                    let base = {
-                        let p = mem.add(base_off);
-                        let b0 = *p as u64;
-                        let b1 = *p.add(1) as u64;
-                        let b2 = *p.add(2) as u64;
-                        let b3 = *p.add(3) as u64;
-                        let b4 = *p.add(4) as u64;
-                        let b5 = *p.add(5) as u64;
-                        let b6 = *p.add(6) as u64;
-                        let b7 = *p.add(7) as u64;
-                        b0 | (b1 << 8)
-                            | (b2 << 16)
-                            | (b3 << 24)
-                            | (b4 << 32)
-                            | (b5 << 40)
-                            | (b6 << 48)
-                            | (b7 << 56)
-                    };
-                    let len_off = base_off + 8;
-                    let len = {
-                        let p = mem.add(len_off);
-                        let b0 = *p as u64;
-                        let b1 = *p.add(1) as u64;
-                        let b2 = *p.add(2) as u64;
-                        let b3 = *p.add(3) as u64;
-                        let b4 = *p.add(4) as u64;
-                        let b5 = *p.add(5) as u64;
-                        let b6 = *p.add(6) as u64;
-                        let b7 = *p.add(7) as u64;
-                        (b0 | (b1 << 8)
-                            | (b2 << 16)
-                            | (b3 << 24)
-                            | (b4 << 32)
-                            | (b5 << 40)
-                            | (b6 << 48)
-                            | (b7 << 56)) as usize
-                    };
-                    if len > 0 {
-                        let data = std::slice::from_raw_parts(mem.add(base as usize), len);
-                        let _ = std::io::stdout().write_all(data);
-                        total += len as u64;
-                    }
-                }
-                *gpr.add(10) = total;
-            } else {
-                *gpr.add(10) = u64::MAX;
-            }
-        } else if a7 == 222 {
-            let addr = *gpr.add(10);
-            let len = *gpr.add(11);
-            let mut ret = addr;
-            if ret == 0 {
-                ret = 0x30000000u64;
-            }
-            if len > (1u64 << 28) {
-                ret = (-12i64) as u64;
-            }
-            *gpr.add(10) = ret;
-        } else if a7 == 78 {
-            // readlinkat (raw)
-            let path_addr = *gpr.add(11);
-            let buf = *gpr.add(12) as usize;
-            let bufsiz = *gpr.add(13) as usize;
-            let mut path = vec![];
-            for i in 0..256 {
-                let b = *mem.add(path_addr as usize + i);
-                if b == 0 {
-                    break;
-                }
-                path.push(b);
-            }
-            let pstr = std::string::String::from_utf8_lossy(&path);
-            let val = if pstr == "/proc/self/exe" {
-                let fake = b"remu";
-                let n = std::cmp::min(fake.len(), bufsiz);
-                let dst = std::slice::from_raw_parts_mut(mem.add(buf), n);
-                dst.copy_from_slice(&fake[..n]);
-                n as i64
-            } else {
-                -2
-            };
-            *gpr.add(10) = val as u64;
-        } else if a7 == 96 {
-            *gpr.add(10) = 1;
-        } else if a7 == 99 {
-            *gpr.add(10) = 0;
-        } else if a7 == 172 {
-            *gpr.add(10) = 1;
-        } else if a7 == 226 {
-            *gpr.add(10) = 0;
-        } else if a7 == 261 {
-            let oldp = *gpr.add(13) as usize;
-            if oldp != 0 {
-                let mut r = [0u8; 16];
-                let cur: u64 = 8 * 1024 * 1024;
-                let max: u64 = u64::MAX;
-                r[0..8].copy_from_slice(&cur.to_le_bytes());
-                r[8..16].copy_from_slice(&max.to_le_bytes());
-                let dst = std::slice::from_raw_parts_mut(mem.add(oldp), 16);
-                dst.copy_from_slice(&r);
-            }
-            *gpr.add(10) = 0;
-        } else if a7 == 278 {
-            let buf = *gpr.add(10) as usize;
-            let len = *gpr.add(11) as usize;
-            for i in 0..len {
-                *mem.add(buf + i) = (0xA5u8).wrapping_add(i as u8);
-            }
-            *gpr.add(10) = len as u64;
+            0u64
         } else {
-            *gpr.add(10) = (-38i64) as u64;
+            let cause = 8u64 + cpu.priv_mode;
+            cpu.take_exception(cause, 0);
+            cpu.pc
         }
     }
 }
