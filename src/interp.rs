@@ -1344,6 +1344,9 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.pc = npc;
         }
         crate::decode::Instr::Mret => {
+            let mpp = (cpu.mstatus >> 11) & 3;
+            cpu.priv_mode = mpp;
+            cpu.mstatus &= !(3u64 << 11);
             cpu.pc = cpu.mepc;
         }
         crate::decode::Instr::Fence => {

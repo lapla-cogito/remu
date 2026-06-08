@@ -337,7 +337,11 @@ pub fn execute_tcg(
                 }
             }
             crate::tcg::op::TcgOpcode::Mret => {
-                let target = cpu.read_csr(0x341); // mepc
+                let mstatus = cpu.read_csr(0x300);
+                let mpp = (mstatus >> 11) & 3;
+                cpu.priv_mode = mpp;
+                cpu.write_csr(0x300, mstatus & !(3u64 << 11));
+                let target = cpu.read_csr(0x341);
                 next_pc = Some(target);
                 break;
             }
