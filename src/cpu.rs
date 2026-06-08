@@ -9,8 +9,12 @@ pub struct Cpu {
     pub reservation_addr: u64,
     pub reservation_size: u64,
     pub brk: u64,
-    // mepc is special-cased (MRET semantics read it directly); other CSRs are in the map.
+    pub priv_mode: u64,
+    pub mstatus: u64,
     pub mepc: u64,
+    pub satp: u64,
+    pub medeleg: u64,
+    pub mideleg: u64,
     pub csr: hashbrown::HashMap<u16, u64>,
 }
 
@@ -19,6 +23,12 @@ impl Cpu {
         crate::cpu::Cpu {
             pc: entry,
             brk: 0x200000u64,
+            priv_mode: 3,
+            mstatus: 0,
+            mepc: 0,
+            satp: 0,
+            medeleg: 0,
+            mideleg: 0,
             ..<Self as std::default::Default>::default()
         }
     }
@@ -94,7 +104,11 @@ impl Cpu {
 
     pub fn read_csr(&self, csr: u16) -> u64 {
         match csr {
-            0xf14 => 0, // mhartid: single hart 0 for tests
+            0xf14 => 0,
+            0x180 => self.satp,
+            0x300 => self.mstatus,
+            0x302 => self.medeleg,
+            0x303 => self.mideleg,
             0x341 => self.mepc,
             _ => *self.csr.get(&csr).unwrap_or(&0),
         }
@@ -102,6 +116,18 @@ impl Cpu {
 
     pub fn write_csr(&mut self, csr: u16, val: u64) {
         match csr {
+            0x180 => {
+                self.satp = val;
+            }
+            0x300 => {
+                self.mstatus = val;
+            }
+            0x302 => {
+                self.medeleg = val;
+            }
+            0x303 => {
+                self.mideleg = val;
+            }
             0x341 => {
                 self.mepc = val;
             }
