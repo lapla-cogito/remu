@@ -54,8 +54,12 @@ pub fn load_elf(
         }
     }
     cpu.write_gpr(3, gp);
-    let stack_top = 0x0800_0000u64;
-    let sp = setup_minimal_stack(mem, stack_top, &elf, load_base)?;
+    // Place the auxiliary stack at a low address. This is only used for initial
+    // argc/argv/auxv setup passed to _start. High-linked bare-metal programs
+    // (e.g. kernels) typically set their own stack pointer from their own bss
+    // and ignore this value.
+    const AUX_STACK_TOP: u64 = 0x100000;
+    let sp = setup_minimal_stack(mem, AUX_STACK_TOP, &elf, load_base)?;
     cpu.write_gpr(2, sp);
 
     for ph in &elf.program_headers {
@@ -63,17 +67,18 @@ pub fn load_elf(
             let template_va = load_base + ph.p_vaddr;
             let filesz = ph.p_filesz;
             let memsz = ph.p_memsz;
-            // Place the main thread's TLS block in a safe area (away from loaded segments and stack).
-            let tls_block: u64 = 0x20000000;
-            mem.ensure(tls_block + memsz + 0x1000);
+            // Place the initial TLS block at a low address that does not conflict
+            // with either typical small static binaries or high-linked kernels.
+            const INITIAL_TLS_BASE: u64 = 0x200000;
+            mem.ensure(INITIAL_TLS_BASE + memsz + 0x1000);
             for i in 0..filesz {
                 let b = mem.read_u8(template_va + i)?;
-                mem.write_u8(tls_block + i, b)?;
+                mem.write_u8(INITIAL_TLS_BASE + i, b)?;
             }
             for i in filesz..memsz {
-                mem.write_u8(tls_block + i, 0)?;
+                mem.write_u8(INITIAL_TLS_BASE + i, 0)?;
             }
-            cpu.write_gpr(4, tls_block);
+            cpu.write_gpr(4, INITIAL_TLS_BASE);
             break;
         }
     }

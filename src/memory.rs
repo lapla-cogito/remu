@@ -1,31 +1,50 @@
 pub struct GuestMemory {
-    data: Vec<u8>,
+    pages: hashbrown::HashMap<u64, [u8; 4096]>,
+    // Highest address written or ensured so far.
+    max_touched: u64,
+
+    jit_mmap_base: *mut u8,
+    jit_mmap_size: usize,
 }
 
 impl GuestMemory {
+    const PAGE_SIZE: u64 = 4096;
+
     pub fn new() -> Self {
-        // Starts small and grows on demand to support guest programs using high addresses
-        // or large memory regions (common for some bare-metal and test ELFs).
+        // Sparse by default; grows only for touched pages. Enables practical high-VA ELFs.
         Self {
-            data: ::std::vec::Vec::new(),
+            pages: hashbrown::HashMap::new(),
+            max_touched: 0,
+            jit_mmap_base: std::ptr::null_mut(),
+            jit_mmap_size: 0,
         }
+    }
+
+    fn page_num(addr: u64) -> u64 {
+        addr / Self::PAGE_SIZE
+    }
+
+    fn page_off(addr: u64) -> usize {
+        (addr & (Self::PAGE_SIZE - 1)) as usize
     }
 
     pub fn ensure(&mut self, addr: u64) {
-        let idx = addr as usize;
-        if idx >= self.data.len() {
-            let new_len = (idx + 1).next_power_of_two().max(self.data.len());
-            self.data.resize(new_len, 0);
+        // Ensure the page for addr exists (for high VA this is cheap: one 4K alloc).
+        if addr > self.max_touched {
+            self.max_touched = addr;
         }
+        let p = Self::page_num(addr);
+        self.pages.entry(p).or_insert_with(|| [0u8; 4096]);
     }
 
     pub fn read_u8(&self, addr: u64) -> anyhow::Result<u8> {
-        let i = addr as usize;
-        if i < self.data.len() {
-            Ok(self.data[i])
+        let p = Self::page_num(addr);
+        let off = Self::page_off(addr);
+        if let Some(page) = self.pages.get(&p) {
+            Ok(page[off])
         } else {
-            // Never-written addresses (including beyond current grow) read as 0.
-            // This preserves semantics for sparse/high-linked guests without forcing full prealloc.
+            // Never-written pages (or beyond) read as 0. Matches previous semantics for
+            // sparse/high-linked guests and unmapped MMIO regions.
             Ok(0)
         }
     }
@@ -49,9 +68,20 @@ impl GuestMemory {
     }
 
     pub fn write_u8(&mut self, addr: u64, val: u8) -> anyhow::Result<()> {
-        self.ensure(addr);
-        let i = addr as usize;
-        self.data[i] = val;
+        if addr > self.max_touched {
+            self.max_touched = addr;
+        }
+        let p = Self::page_num(addr);
+        let off = Self::page_off(addr);
+        let page = self.pages.entry(p).or_insert_with(|| [0u8; 4096]);
+        page[off] = val;
+        // If JIT mmap region is active, mirror the write so direct [base + gva]
+        // accesses from emitted code see up-to-date data.
+        if !self.jit_mmap_base.is_null() && (addr as usize) < self.jit_mmap_size {
+            unsafe {
+                *self.jit_mmap_base.add(addr as usize) = val;
+            }
+        }
         Ok(())
     }
 
@@ -71,7 +101,45 @@ impl GuestMemory {
     }
 
     pub fn mem_ptr(&mut self) -> *mut u8 {
-        self.data.as_mut_ptr()
+        if self.jit_mmap_base.is_null() {
+            let size: usize = 1usize << 34; // 16 GiB virtual reservation
+            let ptr = unsafe {
+                libc::mmap(
+                    std::ptr::null_mut::<libc::c_void>(),
+                    size,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_NORESERVE,
+                    -1,
+                    0,
+                )
+            };
+            if ptr == libc::MAP_FAILED {
+                let cover = self.max_touched.saturating_add(1 << 20);
+                let need = if cover == 0 { 1 << 20 } else { cover as usize };
+                let v = std::vec![0u8; need];
+                let base = v.as_ptr() as *mut u8;
+                std::mem::forget(v);
+                self.jit_mmap_base = base;
+                self.jit_mmap_size = need;
+            } else {
+                self.jit_mmap_base = ptr as *mut u8;
+                self.jit_mmap_size = size;
+            }
+            // Copy current sparse pages into the region at their guest VA.
+            for (&pnum, page) in self.pages.iter() {
+                let va0 = pnum * Self::PAGE_SIZE;
+                if (va0 as usize) < self.jit_mmap_size {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            page.as_ptr(),
+                            self.jit_mmap_base.add(va0 as usize),
+                            Self::PAGE_SIZE as usize,
+                        );
+                    }
+                }
+            }
+        }
+        self.jit_mmap_base
     }
 
     pub fn read_bytes(&self, addr: u64, len: usize) -> anyhow::Result<Vec<u8>> {
@@ -87,5 +155,15 @@ impl GuestMemory {
             self.write_u8(addr + i as u64, b)?;
         }
         Ok(())
+    }
+}
+
+impl std::ops::Drop for GuestMemory {
+    fn drop(&mut self) {
+        if !self.jit_mmap_base.is_null() && self.jit_mmap_size > 0 {
+            unsafe {
+                let _ = libc::munmap(self.jit_mmap_base as *mut libc::c_void, self.jit_mmap_size);
+            }
+        }
     }
 }

@@ -397,6 +397,7 @@ dependencies = [
  "env_logger",
  "goblin",
  "hashbrown",
+ "libc",
  "log",
  "smallvec",
  "thiserror",

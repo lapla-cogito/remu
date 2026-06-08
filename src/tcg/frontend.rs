@@ -596,12 +596,12 @@ pub fn translate_block(
                 break;
             }
             crate::decode::Instr::Jalr { rd, rs1, imm } => {
+                let trs = ctx.new_temp();
+                ctx.gen_get_gpr_i64(trs, rs1);
                 if rd != 0 {
                     let tlink = ctx.new_const(after_pc);
                     ctx.gen_set_gpr_i64(rd, tlink);
                 }
-                let trs = ctx.new_temp();
-                ctx.gen_get_gpr_i64(trs, rs1);
                 let timm = ctx.new_const(imm as u64);
                 let ttarget = ctx.new_temp();
                 ctx.gen_add_i64(ttarget, trs, timm);

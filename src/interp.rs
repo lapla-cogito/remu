@@ -270,8 +270,8 @@ pub fn step(cpu: &mut crate::cpu::Cpu, mem: &mut crate::memory::GuestMemory) -> 
             cpu.pc = cpu.pc.wrapping_add(imm as u64);
         }
         crate::decode::Instr::Jalr { rd, rs1, imm } => {
-            cpu.write_gpr(rd, npc);
             let target = (cpu.read_gpr(rs1).wrapping_add(imm as u64)) & !1u64;
+            cpu.write_gpr(rd, npc);
             cpu.pc = target;
         }
         crate::decode::Instr::Beq { rs1, rs2, imm } => {
