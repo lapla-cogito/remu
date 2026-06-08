@@ -1673,12 +1673,12 @@ pub fn decode_compressed(raw: u16) -> Instr {
             // c.ldsp
             let rd = ((raw >> 7) & 0x1f) as u8;
             let mut u = 0u64;
-            u |= ((raw >> 10) & 1) as u64;
-            u |= (((raw >> 11) & 1) as u64) << 1;
-            u |= (((raw >> 12) & 1) as u64) << 2;
-            u |= (((raw >> 7) & 1) as u64) << 3;
-            u |= (((raw >> 8) & 1) as u64) << 4;
-            u |= (((raw >> 9) & 1) as u64) << 5;
+            u |= ((raw >> 12) & 1) as u64;
+            u |= (((raw >> 6) & 1) as u64) << 4;
+            u |= ((raw >> 5) & 1) as u64;
+            u |= (((raw >> 4) & 1) as u64) << 3;
+            u |= (((raw >> 3) & 1) as u64) << 2;
+            u |= (((raw >> 2) & 1) as u64) << 1;
             let imm = u << 3;
             if rd != 0 {
                 Instr::Ld {
