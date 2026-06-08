@@ -73,21 +73,6 @@ impl Cpu {
         self.fpr[reg as usize] = (val as u64) | 0xffffffff00000000u64;
     }
 
-    #[expect(dead_code)]
-    pub fn read_fcsr(&self) -> u32 {
-        self.fcsr
-    }
-
-    #[expect(dead_code)]
-    pub fn write_fcsr(&mut self, val: u32) {
-        self.fcsr = val & 0xff;
-    }
-
-    #[expect(dead_code)]
-    pub fn frm(&self) -> u8 {
-        ((self.fcsr >> 5) & 7) as u8
-    }
-
     pub fn set_reservation(&mut self, addr: u64, size: u64) {
         self.reservation_addr = addr;
         self.reservation_size = size;
@@ -176,6 +161,44 @@ impl Cpu {
             _ => {
                 self.csr.insert(csr, val);
             }
+        }
+    }
+
+    /// Take a synchronous exception (e.g. ecall).
+    /// Sets the appropriate xepc/xcause/xtval, updates mstatus bits for previous
+    /// priv, computes the trap vector from xtvec (direct mode), changes priv_mode
+    /// and pc. Delegation via medeleg is considered (M vs S).
+    pub fn take_exception(&mut self, cause: u64, tval: u64) {
+        let current_priv = self.priv_mode;
+        let deleg = (self.medeleg & (1u64 << (cause & 0x1f))) != 0;
+        let target_priv = if deleg && current_priv != 3 { 1 } else { 3 };
+
+        if target_priv == 3 {
+            // trap to M-mode
+            let mpp = current_priv;
+            self.mstatus = (self.mstatus & !(3u64 << 11)) | (mpp << 11);
+            let mie = (self.mstatus >> 3) & 1;
+            self.mstatus = (self.mstatus & !(1u64 << 7)) | (mie << 7);
+            self.mstatus &= !(1u64 << 3);
+            self.mepc = self.pc;
+            self.mcause = cause;
+            self.mtval = tval;
+            let vec = self.mtvec & !1u64;
+            self.pc = vec;
+            self.priv_mode = 3;
+        } else {
+            // trap to S-mode
+            let spp = current_priv & 1; // 0 or 1
+            self.mstatus = (self.mstatus & !(1u64 << 8)) | (spp << 8);
+            let sie = (self.mstatus >> 1) & 1;
+            self.mstatus = (self.mstatus & !(1u64 << 5)) | (sie << 5);
+            self.mstatus &= !(1u64 << 1);
+            self.sepc = self.pc;
+            self.scause = cause;
+            self.stval = tval;
+            let vec = self.stvec & !1u64;
+            self.pc = vec;
+            self.priv_mode = 1;
         }
     }
 }
