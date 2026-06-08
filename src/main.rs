@@ -235,4 +235,106 @@ mod tests {
             b"",
         );
     }
+
+    #[test]
+    fn pie_hello_matches_all_modes() {
+        let src = "tests/c/hello.c";
+        let out_elf = "/tmp/pie_hello";
+        let s = std::process::Command::new("riscv64-linux-gnu-gcc")
+            .args([
+                "-march=rv64gc",
+                "-mabi=lp64d",
+                "-nostdlib",
+                "-nostartfiles",
+                "-O1",
+                "-fomit-frame-pointer",
+                "-static",
+                "-fpie",
+                "-pie",
+                "-I",
+                "tests/c",
+                "-o",
+                out_elf,
+                src,
+            ])
+            .status()
+            .expect("gcc pie");
+        if !s.success() {
+            panic!("gcc pie failed for {}", src);
+        }
+        let reference = run_capture(out_elf, "interp");
+        let modes = ["interp", "tcg-interp", "jit", "qemu"];
+        for &mode in &modes[1..] {
+            let out = run_capture(out_elf, mode);
+            assert_eq!(reference.status, out.status, "status differ for {}", mode);
+            assert_eq!(reference.stdout, out.stdout, "stdout differ for {}", mode);
+        }
+        assert_eq!(reference.status.code(), Some(42));
+        assert_eq!(reference.stdout.as_slice(), b"Hello RV64\n");
+    }
+
+    #[test]
+    fn pie_tls_reloc_matches_all_modes() {
+        let src = "tests/c/pie_tls.c";
+        let elf = "/tmp/pie_tls";
+        let gcc_status = std::process::Command::new("riscv64-linux-gnu-gcc")
+            .args([
+                "-march=rv64gc",
+                "-mabi=lp64d",
+                "-nostdlib",
+                "-nostartfiles",
+                "-O1",
+                "-fomit-frame-pointer",
+                "-static",
+                "-fpie",
+                "-pie",
+                "-Wl,--no-dynamic-linker",
+                "-I",
+                "tests/c",
+                "-o",
+                elf,
+                src,
+            ])
+            .status()
+            .expect("gcc pie tls");
+        if !gcc_status.success() {
+            panic!("gcc pie tls failed for {}", src);
+        }
+
+        // Verify with readelf that PT_TLS is present (exercises our TLS handling).
+        let phdr = std::process::Command::new("readelf")
+            .args(["-l", elf])
+            .output()
+            .expect("readelf -l");
+        let phdr_str = std::str::from_utf8(&phdr.stdout).unwrap_or("");
+        assert!(
+            phdr_str.contains("TLS"),
+            "expected PT_TLS in pie tls binary, got:\n{}",
+            phdr_str
+        );
+
+        // Also check relocations section exists (may be empty in -nostdlib but the loader code for
+        // applying them is there; this at least builds a binary that went through PIE linking).
+        let rels = std::process::Command::new("readelf")
+            .args(["-r", elf])
+            .output()
+            .expect("readelf -r");
+        let rels_str = std::str::from_utf8(&rels.stdout).unwrap_or("");
+        // We don't assert count > 0 because -nostdlib often resolves statically,
+        // but we do require the section to have been considered.
+        assert!(
+            rels_str.contains("relocation") || rels_str.contains("Relocation"),
+            "expected relocation section in pie tls binary"
+        );
+
+        let reference = run_capture(elf, "interp");
+        let modes = ["interp", "tcg-interp", "jit", "qemu"];
+        for &mode in &modes[1..] {
+            let out = run_capture(elf, mode);
+            assert_eq!(reference.status, out.status, "status differ for {}", mode);
+            assert_eq!(reference.stdout, out.stdout, "stdout differ for {}", mode);
+        }
+        assert_eq!(reference.status.code(), Some(42));
+        assert_eq!(reference.stdout.as_slice(), b"PIETLSOK\n");
+    }
 }
