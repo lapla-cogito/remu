@@ -149,11 +149,10 @@ mod tests {
         }
     }
 
-    fn assert_all_modes_match(src: &str, exp_code: i32, exp_stdout: &[u8]) {
+    fn assert_modes_match(src: &str, modes: &[&str], exp_code: i32, exp_stdout: &[u8]) {
         let name = src.rsplit('/').next().unwrap_or(src);
         let stem = name.trim_end_matches(".S").trim_end_matches(".c");
         let elf = compile_assemble(src, &std::format!("/tmp/{}", stem));
-        let modes = ["interp", "tcg-interp", "jit", "qemu"];
         let reference = run_capture(&elf, modes[0]);
         for &mode in &modes[1..] {
             let out = run_capture(&elf, mode);
@@ -162,6 +161,15 @@ mod tests {
         }
         assert_eq!(reference.status.code(), Some(exp_code));
         assert_eq!(reference.stdout.as_slice(), exp_stdout);
+    }
+
+    fn assert_all_modes_match(src: &str, exp_code: i32, exp_stdout: &[u8]) {
+        assert_modes_match(
+            src,
+            &["interp", "tcg-interp", "jit", "qemu"],
+            exp_code,
+            exp_stdout,
+        );
     }
 
     #[test]
@@ -215,6 +223,16 @@ mod tests {
             "tests/c/syscall.c",
             42,
             b"FSTAT\nWVOK\nWV\nIOCTL\nUN\nBRKUSE\nRLINK\nGRND\nPRL\nMORE\nSYSOK\n",
+        );
+    }
+
+    #[test]
+    fn mret_matches_emulator_modes() {
+        assert_modes_match(
+            "tests/asm/mret.S",
+            &["interp", "tcg-interp", "jit"],
+            42,
+            b"",
         );
     }
 }

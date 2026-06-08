@@ -1052,10 +1052,15 @@ pub fn compile(
                 {
                     let off_d = temp_base - (d as i32) * 8;
                     if c == 0x341 {
-                        // mepc at offset 552 from gpr base
                         dynasmrt::dynasm!(asm
                             ; mov rax, [rbp-8]
-                            ; mov rax, [rax + 552]
+                            ; mov rax, [rax + 568]
+                            ; mov [rbp + off_d], rax
+                        );
+                    } else if c == 0x300 {
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp-8]
+                            ; mov rax, [rax + 560]
                             ; mov [rbp + off_d], rax
                         );
                     } else if c == 0xf14 {
@@ -1082,7 +1087,14 @@ pub fn compile(
                         dynasmrt::dynasm!(asm
                             ; mov rax, [rbp + off_s]
                             ; mov rdx, [rbp-8]
-                            ; mov [rdx + 552], rax
+                            ; mov [rdx + 568], rax
+                        );
+                    } else if c == 0x300 {
+                        let off_s = temp_base - (s as i32) * 8;
+                        dynasmrt::dynasm!(asm
+                            ; mov rax, [rbp + off_s]
+                            ; mov rdx, [rbp-8]
+                            ; mov [rdx + 560], rax
                         );
                     }
                     // other CSRs ignored for now (written in init, not read back in hot paths)
@@ -1094,16 +1106,36 @@ pub fn compile(
                     dynasmrt::dynasm!(asm
                         ; mov rax, QWORD ci
                         ; mov rdx, [rbp-8]
-                        ; mov [rdx + 552], rax
+                        ; mov [rdx + 568], rax
+                    );
+                } else if let (crate::tcg::op::TcgArg::Const(c), crate::tcg::op::TcgArg::Const(v)) =
+                    (op.args[0], op.args[1])
+                    && c == 0x300
+                {
+                    let ci = v as i64;
+                    dynasmrt::dynasm!(asm
+                        ; mov rax, QWORD ci
+                        ; mov rdx, [rbp-8]
+                        ; mov [rdx + 560], rax
                     );
                 }
             }
             crate::tcg::op::TcgOpcode::Mret => {
-                // load mepc and make it the return value (next pc), then epilogue
                 let el = epilogue;
+                let mpp_mask: i64 = 0x1800;
+                let clear_mask: i64 = 0xffff_ffff_ffff_e7ffu64 as i64;
                 dynasmrt::dynasm!(asm
-                    ; mov rax, [rbp-8]
-                    ; mov rax, [rax + 552]
+                    ; mov rdx, [rbp-8]
+                    ; mov rax, [rdx + 560]
+                    ; mov rcx, rax
+                    ; mov r11, QWORD mpp_mask
+                    ; and rcx, r11
+                    ; shr rcx, 11
+                    ; mov [rdx + 552], rcx
+                    ; mov r11, QWORD clear_mask
+                    ; and rax, r11
+                    ; mov [rdx + 560], rax
+                    ; mov rax, [rdx + 568]
                     ; mov [rbp + nextpc_off], rax
                     ; jmp =>el
                 );
